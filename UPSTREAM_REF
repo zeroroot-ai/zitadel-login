@@ -1,0 +1,13 @@
+# Pinned upstream Zitadel Login V2 source (deploy#888).
+#
+# The login app moved into the zitadel/zitadel monorepo (apps/login) as of the
+# v4 line; core Zitadel and the login UI ship from the SAME tag and MUST move
+# together. The image we publish is tagged with TAG below so the chart override
+# and the core Zitadel image stay in lockstep.
+#
+# On every Zitadel version bump: update TAG + COMMIT here, re-resolve the patch
+# set in patches/, and rebuild BEFORE the core bump merges (see README.md).
+
+REPO=https://github.com/zitadel/zitadel.git
+TAG=v4.14.0
+COMMIT=10b1af91d68700707d41e820545e478cf267511b

@@ -1,0 +1,43 @@
+# Org-standard consolidated policy-guards job (epic cicd-efficiency board
+# #44 slice S11b, .github#203 pattern — copied from setec/adk). Added here
+# as the branch-protection prerequisite for this repo's ruleset
+# (zeroroot-ai/.github#222): the repo-level ruleset requires the
+# `policy-guards / vault-auth-method-deny-list` context, which must exist
+# and report on merge_group BEFORE the ruleset is applied.
+#
+# Runs on both pull_request (fast contributor signal) and merge_group (the
+# authoritative gate once the merge queue is enabled) — pr-title-lint.yml
+# stays separate and pull_request-only since PR-title checks are
+# meaningless in the merge queue context.
+#
+# Folds in the org's trivial per-PR guards (all generic scans, safe on this
+# Dockerfile-only overlay repo):
+#   - vault-auth-method-deny-list (ADR-0009 deny-list token scan)
+#   - no-monorepo-shortcuts (go.work / replace / submodules — vacuously
+#     green here, kept for org uniformity)
+#   - runs-on-lint (ADR-0060: GitHub-hosted runners only)
+#
+# IMPORTANT: this exact structure (job id `policy-guards` calling the
+# reusable job id `vault-auth-method-deny-list`) is what produces the status
+# check context string `policy-guards / vault-auth-method-deny-list`, which
+# is the ONE context empirically verified to report correctly under
+# merge_group in this org (canary-tested via gibson's PR #208 — see
+# zeroroot-ai/.github PR #208 for the evidence). Do not rename the job id.
+#
+# Required check name: policy-guards
+
+name: policy-guards
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  merge_group:
+
+jobs:
+  policy-guards:
+    name: policy-guards
+    uses: zeroroot-ai/.github/.github/workflows/vault-auth-method-deny-list.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+  no-monorepo-shortcuts:
+    uses: zeroroot-ai/.github/.github/workflows/no-monorepo-shortcuts.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+  runs-on-lint:
+    uses: zeroroot-ai/.github/.github/workflows/runs-on-lint.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06

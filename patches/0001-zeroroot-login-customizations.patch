@@ -1,0 +1,99 @@
+diff --git a/apps/login/src/components/back-button.tsx b/apps/login/src/components/back-button.tsx
+index 434d723..5d1c8e3 100644
+--- a/apps/login/src/components/back-button.tsx
++++ b/apps/login/src/components/back-button.tsx
+@@ -1,13 +1,24 @@
+ "use client";
+ 
+ import { useRouter } from "next/navigation";
+-import { Button, ButtonVariants } from "./button";
++import { Button, ButtonProps, ButtonVariants } from "./button";
+ import { Translated } from "./translated";
+ 
+-export function BackButton() {
++// zeroroot fork patch (deploy#888): optional `href`. When a caller passes an
++// href (e.g. the loginname entry page, whose browser-history "back" lands on a
++// meaningless OIDC redirect), the button navigates to that external origin via a
++// full page load instead of router.back(). Default (no href) is byte-for-byte
++// upstream behavior, so every other call site is unaffected and the rebase onto
++// the next Zitadel login tag stays mechanical.
++export function BackButton({ href, ...props }: { href?: string } & Partial<ButtonProps>) {
+   const router = useRouter();
+   return (
+-    <Button onClick={() => router.back()} type="button" variant={ButtonVariants.Secondary}>
++    <Button
++      onClick={() => (href ? window.location.assign(href) : router.back())}
++      type="button"
++      variant={ButtonVariants.Secondary}
++      {...props}
++    >
+       <Translated i18nKey="back" namespace="common" />
+     </Button>
+   );
+diff --git a/apps/login/src/components/logo.tsx b/apps/login/src/components/logo.tsx
+index b56d7a0..96b0438 100644
+--- a/apps/login/src/components/logo.tsx
++++ b/apps/login/src/components/logo.tsx
+@@ -1,3 +1,5 @@
++import { ReactNode } from "react";
++
+ type Props = {
+   darkSrc?: string;
+   lightSrc?: string;
+@@ -5,9 +7,29 @@ type Props = {
+   width?: number;
+ };
+ 
++// zeroroot fork patch (deploy#888): when NEXT_PUBLIC_LANDING_URL is configured,
++// the brand logo links out to the marketing landing origin. The value is NEVER
++// hardcoded here (respects the deploy#630 no-hardcoded-hostname guard) — it is
++// injected at build time via the NEXT_PUBLIC_LANDING_URL env var. When unset the
++// logo renders exactly as upstream (no anchor), so the diff is inert by default.
++// Keep this wrapper tiny and self-contained so the rebase onto the next Zitadel
++// login tag stays mechanical.
++const LANDING_URL = process.env.NEXT_PUBLIC_LANDING_URL;
++
++function LogoLink({ children }: { children: ReactNode }) {
++  if (!LANDING_URL) {
++    return <>{children}</>;
++  }
++  return (
++    <a href={LANDING_URL} aria-label="home" className="inline-flex">
++      {children}
++    </a>
++  );
++}
++
+ export function Logo({ lightSrc, darkSrc, height = 40, width = 147.5 }: Props) {
+   return (
+-    <>
++    <LogoLink>
+       {darkSrc && (
+         <div className="hidden dark:flex">
+           <img height={height} width={width} src={darkSrc} alt="logo" />
+@@ -18,6 +40,6 @@ export function Logo({ lightSrc, darkSrc, height = 40, width = 147.5 }: Props) {
+           <img height={height} width={width} src={lightSrc} alt="logo" />
+         </div>
+       )}
+-    </>
++    </LogoLink>
+   );
+ }
+diff --git a/apps/login/src/components/username-form.tsx b/apps/login/src/components/username-form.tsx
+index e2adbda..1cbdd44 100644
+--- a/apps/login/src/components/username-form.tsx
++++ b/apps/login/src/components/username-form.tsx
+@@ -142,7 +142,12 @@ export function UsernameForm({
+           </div>
+         )}
+         <div className="mt-4 flex w-full flex-row items-center">
+-          <BackButton data-testid="back-button" />
++          {/* zeroroot fork patch (deploy#888): repoint the loginname entry-page
++              back button to the marketing landing origin when configured. The
++              origin is injected via NEXT_PUBLIC_LANDING_URL (never hardcoded —
++              respects the deploy#630 no-hardcoded-hostname guard); when unset,
++              href is undefined and BackButton falls back to upstream router.back(). */}
++          <BackButton href={process.env.NEXT_PUBLIC_LANDING_URL} data-testid="back-button" />
+           <span className="flex-grow"></span>
+           <Button
+             data-testid="submit-button"

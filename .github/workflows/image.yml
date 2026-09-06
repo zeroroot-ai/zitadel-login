@@ -1,0 +1,60 @@
+name: image
+
+# Builds + pushes ghcr.io/zeroroot-ai/zitadel-login to GHCR via the org
+# reusable image-build workflow (deploy#888). The image tag tracks the upstream
+# Zitadel version (e.g. v4.14.0) so the deploy chart's login.image override and
+# the core Zitadel image stay in lockstep. Publish a matching git tag (v4.14.0)
+# on this repo to cut the release image.
+#
+# tag_pattern `(v.*)` keeps the leading `v`, so git tag v4.14.0 -> image
+# :v4.14.0 (matching the chart's login.image.tag and upstream's own scheme).
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*.*.*"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+      actions: read
+    with:
+      component_name: zitadel-login
+      component_path: .
+      dockerfile_path: Dockerfile
+      image_name: ghcr.io/zeroroot-ai/zitadel-login
+      tag_pattern: (v.*)
+      # Landing origin for the logo link + loginname back button (deploy#888).
+      # Sourced from an Actions variable so the hostname is never hardcoded in
+      # source (respects the deploy#630 guard). Set `NEXT_PUBLIC_LANDING_URL` as
+      # a repo/org Actions variable; empty -> patch renders inert (upstream UI).
+      build_args: |
+        NEXT_PUBLIC_LANDING_URL=${{ vars.NEXT_PUBLIC_LANDING_URL }}
+
+  # Iron-Bank-aligned post-build assertions (reusable-container-hardening.yml).
+  # forbid_shell is false: the runtime is node:24-alpine and the upstream
+  # entrypoint is a /bin/sh script (entrypoint.sh), so a shell is required.
+  hardening:
+    needs: build
+    if: github.event_name != 'pull_request'
+    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    permissions:
+      contents: read
+      packages: read
+    with:
+      image_ref: ghcr.io/zeroroot-ai/zitadel-login@${{ needs.build.outputs.digest }}
+      size_budget_mb: 800
+      forbid_shell: false
