@@ -28,7 +28,7 @@ ARG NEXT_PUBLIC_LANDING_URL=""
 # ---------------------------------------------------------------------------
 # Stage 1: fetch upstream source at the pinned tag and apply our patch set.
 # ---------------------------------------------------------------------------
-FROM node:24 AS source
+FROM node:24@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS source
 ARG UPSTREAM_REPO
 ARG UPSTREAM_TAG
 ARG UPSTREAM_COMMIT
@@ -48,7 +48,7 @@ RUN for p in /patches/*.patch; do echo "applying $p"; git apply -p1 --verbose "$
 # Mirrors upstream CI (pnpm + nx); the login `build` script assembles the
 # standalone (copies scripts/* + public, swaps server.mjs in as server.js).
 # ---------------------------------------------------------------------------
-FROM node:24 AS builder
+FROM node:24@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS builder
 ARG NEXT_PUBLIC_LANDING_URL
 ENV NEXT_PUBLIC_LANDING_URL=${NEXT_PUBLIC_LANDING_URL}
 WORKDIR /src
@@ -70,7 +70,7 @@ RUN pnpm exec nx run @zitadel/proto:generate \
 # Stage 3: runtime — verbatim copy of upstream apps/login/Dockerfile so the
 # image remains a drop-in replacement (env contract / ports / entrypoint).
 # ---------------------------------------------------------------------------
-FROM node:24-alpine
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
