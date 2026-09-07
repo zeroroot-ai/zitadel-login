@@ -106,7 +106,7 @@ jobs:
     # A workflow_dispatch on main re-runs the fan-out by hand, for example
     # after the App secret was missing on the first push (run 34139336828).
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@32ea38bdf44e60935f734bab93df880da72fff93 # main 2026-09-07
+    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@4312519c45902bcd581a1afdc7aad26c19cd0d63 # main 2026-09-07, regenerate (.github#37)
     permissions:
       contents: read
       packages: read
