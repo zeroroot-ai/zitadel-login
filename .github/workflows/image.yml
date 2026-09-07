@@ -94,6 +94,26 @@ jobs:
         UPSTREAM_COMMIT=${{ needs.resolve.outputs.commit }}
         NEXT_PUBLIC_LANDING_URL=${{ vars.NEXT_PUBLIC_LANDING_URL }}
 
+  # Version fan-out (zeroroot-ai/.github#20, slice #24). After every publish
+  # from `main` the org reusable reads the `zitadel` link in
+  # version-links.yaml and opens or updates ONE charts PR that moves
+  # `zitadel.image.tag` and the login pin to the tag this run published. The
+  # PR goes through the charts merge gate and sign-off; auto-merge is never
+  # armed. A failure here is loud on purpose (ADR-0013). The two App secrets
+  # live on this repo, the same way sdk holds them for its fan-out.
+  fanout:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@32ea38bdf44e60935f734bab93df880da72fff93 # main 2026-09-07
+    permissions:
+      contents: read
+      packages: read
+    with:
+      link: zitadel
+    secrets:
+      app-id: ${{ secrets.SDK_FANOUT_APP_ID }}
+      app-private-key: ${{ secrets.SDK_FANOUT_APP_PRIVATE_KEY }}
+
   # Iron-Bank-aligned post-build assertions (reusable-container-hardening.yml).
   # forbid_shell is false: the runtime is node:24-alpine and the upstream
   # entrypoint is a /bin/sh script (entrypoint.sh), so a shell is required.
