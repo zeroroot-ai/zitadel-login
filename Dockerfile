@@ -28,7 +28,7 @@ ARG NEXT_PUBLIC_LANDING_URL=""
 # ---------------------------------------------------------------------------
 # Stage 1: fetch upstream source at the pinned tag and apply our patch set.
 # ---------------------------------------------------------------------------
-FROM node:24@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS source
+FROM node:26@sha256:f5d1cc40abc10c2843339a2134d07817cf33c405cb16bfd052b0ed790254c3a3 AS source
 ARG UPSTREAM_REPO
 ARG UPSTREAM_TAG
 ARG UPSTREAM_COMMIT
@@ -48,7 +48,7 @@ RUN for p in /patches/*.patch; do echo "applying $p"; git apply -p1 --verbose "$
 # Mirrors upstream CI (pnpm + nx); the login `build` script assembles the
 # standalone (copies scripts/* + public, swaps server.mjs in as server.js).
 # ---------------------------------------------------------------------------
-FROM node:24@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS builder
+FROM node:26@sha256:f5d1cc40abc10c2843339a2134d07817cf33c405cb16bfd052b0ed790254c3a3 AS builder
 ARG NEXT_PUBLIC_LANDING_URL
 ENV NEXT_PUBLIC_LANDING_URL=${NEXT_PUBLIC_LANDING_URL}
 WORKDIR /src
@@ -72,7 +72,7 @@ RUN pnpm exec nx run @zitadel/proto:generate \
 # addition is the hardening RUN right after FROM; everything below it is
 # upstream verbatim.
 # ---------------------------------------------------------------------------
-FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3
 # Hardening on top of the digest-pinned base (zitadel-login#1):
 #   * `apk upgrade` pulls the distro fixes that landed after the node image
 #     was built (2026-09: openssl 3.5.8-r0). The pin makes the base
