@@ -7,7 +7,7 @@ edits. We self-host the upstream app — we do **not** reimplement it.
 
 - Tracker: [deploy#888](https://github.com/zeroroot-ai/deploy/issues/888)
 - License: **MIT** (inherited from upstream `apps/login/LICENSE`; see `LICENSE`)
-- Image: `ghcr.io/zeroroot-ai/zitadel-login:<zitadel-version>` (e.g. `:v4.17.3`)
+- Image: `ghcr.io/zeroroot-ai/zitadel-login:<upstream-tag>`, published by every push to `main` from the tag in `UPSTREAM_REF`
 
 ## Explicit non-goal
 
@@ -25,10 +25,12 @@ is a small, isolated patch set on top of a pinned upstream tag:
 
 | File | Role |
 |------|------|
-| `UPSTREAM_REF` | Pinned upstream `REPO` / `TAG` / `COMMIT` (single source of truth). |
+| `UPSTREAM_REF` | Pinned upstream `REPO` / `TAG` / `COMMIT`. The only copy of the version in this repo. |
+| `scripts/upstream-ref.sh` | The one reader of `UPSTREAM_REF`. The workflow, the Makefile and the patch check go through it. |
+| `scripts/patch-check.sh` | Sparse-clones upstream at the pinned tag and apply-checks the patch set. PR job and `make test`. |
 | `patches/*.patch` | The customization, as `git apply -p1` diffs rooted at `apps/login/...`. |
-| `Dockerfile` | Multi-stage: clone upstream @ tag → verify SHA → apply patches → upstream build → upstream runtime. |
-| `.github/workflows/image.yml` | Builds + publishes the image via the org `reusable-image-build.yml`. |
+| `Dockerfile` | Multi-stage: clone upstream @ tag → verify SHA → apply patches → upstream build → upstream runtime. Carries no version; the tag, commit and landing URL are required build args. |
+| `.github/workflows/image.yml` | Reads `UPSTREAM_REF`, runs the patch check on PRs, builds + publishes the image tagged `<upstream-tag>` via the org `reusable-image-build.yml`. |
 
 The runtime stage of the `Dockerfile` is a verbatim copy of upstream
 `apps/login/Dockerfile`, so the image is a **drop-in replacement**: same env
@@ -64,47 +66,48 @@ right tradeoff. To change it, update the Actions variable and rebuild.
 ## Maintenance contract: rebase on every Zitadel bump
 
 > **Core Zitadel and the login UI ship from the same tag and MUST move
-> together.** On every Zitadel version bump, rebase this fork onto the new
-> upstream login tag and rebuild the image at the matching tag **before** the
-> core bump merges in `deploy`, or the login UI and core drift.
+> together.** The chart pins `zitadel.image.tag` and the login image at the
+> same upstream tag, and a chart guard rejects a move of one without the other
+> (zeroroot-ai/charts#13). This repo leads: bump here first, the image
+> publishes itself, the chart follows through the version fan-out
+> (zeroroot-ai/.github#24). Tracking epic: zeroroot-ai/.github#20.
 
 Per-bump checklist:
 
-1. Find the new upstream commit: the tag is `vX.Y.Z` in `zitadel/zitadel`;
-   record `git rev-parse vX.Y.Z`.
-2. Update `UPSTREAM_REF` (`TAG`, `COMMIT`) and the matching `ARG`s in
-   `Dockerfile`.
-3. Re-resolve the patch set against the new tag (the diffs are tiny and target
-   `logo.tsx`, `back-button.tsx`, `username-form.tsx`):
-   ```bash
-   git clone --depth 1 --branch vX.Y.Z https://github.com/zitadel/zitadel.git up
-   cd up && git apply -p1 --check ../patches/*.patch   # if it fails, hand-merge + regenerate
-   ```
-4. **Before tagging, confirm the `NEXT_PUBLIC_LANDING_URL` Actions variable is
-   set on this repo** (`gh variable list -R zeroroot-ai/zitadel-login`). The
-   build does NOT fail when it is unset — it silently produces an **unbranded**
-   image (the patch renders inert, exactly upstream). This shipped once:
-   the first `v4.14.0` build (2026-07-02) was published unbranded because the
-   repo had zero Actions variables.
-5. Tag this repo `vX.Y.Z`; CI publishes `ghcr.io/zeroroot-ai/zitadel-login:vX.Y.Z`.
-   Sanity-check the branding is baked in before consuming the image:
-   ```bash
-   docker run --rm --entrypoint sh ghcr.io/zeroroot-ai/zitadel-login:vX.Y.Z \
-     -c 'grep -rl "<landing-host>" /app >/dev/null && echo BRANDED || echo UNBRANDED'
-   ```
-6. **Only then** bump the deploy chart: `zitadel.image` (core) **and**
-   `zitadel.login.image.tag` in the same PR. The deploy chart requires an
-   immutable digest pin (`tag: "vX.Y.Z@sha256:<digest>"`, deploy#789); resolve
-   the fresh digest with
-   `gh api /orgs/zeroroot-ai/packages/container/zitadel-login/versions`.
+1. Edit `UPSTREAM_REF`: set `TAG` to the new upstream tag and `COMMIT` to
+   `git rev-parse <tag>` in `zitadel/zitadel`. Nothing else carries the version.
+2. Re-resolve the patch set: `make test` sparse-clones upstream at the new tag
+   and apply-checks `patches/*.patch`. If it fails, hand-merge the three files
+   (`logo.tsx`, `back-button.tsx`, `username-form.tsx`) and regenerate the
+   patch. The same check runs as the `patch-check` job on the PR.
+3. Merge. The push to `main` publishes `ghcr.io/zeroroot-ai/zitadel-login:<tag>`
+   next to `sha-<short>`; no git tag is involved.
+
+What the workflow enforces, so the checklist stays three steps:
+
+- The `NEXT_PUBLIC_LANDING_URL` Actions variable must be set on this repo. The
+  `resolve` job fails with a message that names it, and the Dockerfile fails
+  again if the build arg is empty. An empty value once shipped an unbranded
+  image (the first build on 2026-07-02), so the build no longer tolerates it.
+- The Dockerfile declares `UPSTREAM_REPO`, `UPSTREAM_TAG`, `UPSTREAM_COMMIT`
+  and `NEXT_PUBLIC_LANDING_URL` as build args with no defaults. `make check`
+  fails if a default appears.
+
+To check the branding is baked into a published image:
+
+```bash
+docker run --rm --entrypoint sh ghcr.io/zeroroot-ai/zitadel-login:<tag> \
+  -c 'grep -rl "<landing-host>" /app >/dev/null && echo BRANDED || echo UNBRANDED'
+```
 
 ## Building locally
 
 ```bash
-docker build \
-  --build-arg NEXT_PUBLIC_LANDING_URL=https://<your-landing-origin> \
-  -t ghcr.io/zeroroot-ai/zitadel-login:v4.17.3 .
+make build NEXT_PUBLIC_LANDING_URL=https://<your-landing-origin>
 ```
+
+`make build` reads the tag and commit from `UPSTREAM_REF` and refuses an empty
+landing URL.
 
 The build clones the upstream monorepo and runs the full pnpm + nx build, so it
 needs network access and is resource-heavy (a Next.js 16 / React 19 monorepo

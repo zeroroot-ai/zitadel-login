@@ -1,19 +1,22 @@
 name: image
 
 # Builds + pushes ghcr.io/zeroroot-ai/zitadel-login to GHCR via the org
-# reusable image-build workflow (deploy#888). The image tag tracks the upstream
-# Zitadel version (e.g. v4.14.0) so the deploy chart's login.image override and
-# the core Zitadel image stay in lockstep. Publish a matching git tag (v4.14.0)
-# on this repo to cut the release image.
+# reusable image-build workflow (deploy#888).
 #
-# tag_pattern `(v.*)` keeps the leading `v`, so git tag v4.14.0 -> image
-# :v4.14.0 (matching the chart's login.image.tag and upstream's own scheme).
+# UPSTREAM_REF is the only copy of the upstream ZITADEL version
+# (zitadel-login#7, zeroroot-ai/.github#20). The `resolve` job reads it and
+# every later job consumes its outputs: the build args, and the `v<upstream>`
+# image tag that every push to `main` publishes next to `sha-<short>`. No git
+# tag is involved; the chart pins `v<upstream>@sha256:<digest>` and
+# re-resolves the digest at chart publish.
+#
+# The build fails when the NEXT_PUBLIC_LANDING_URL Actions variable is unset,
+# before the 10-minute build starts. An empty value used to ship an unbranded
+# image.
 
 on:
   push:
     branches: [main]
-    tags:
-      - "v*.*.*"
   pull_request:
   workflow_dispatch:
 
@@ -22,8 +25,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  resolve:
+    name: resolve UPSTREAM_REF
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      repo: ${{ steps.ref.outputs.repo }}
+      tag: ${{ steps.ref.outputs.tag }}
+      commit: ${{ steps.ref.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Self-test the UPSTREAM_REF reader and the patch check
+        run: |
+          bash scripts/upstream-ref.sh --selftest
+          bash scripts/patch-check.sh --selftest
+      - name: Read UPSTREAM_REF
+        id: ref
+        run: bash scripts/upstream-ref.sh --github-output
+      - name: Require the landing-URL variable
+        env:
+          NEXT_PUBLIC_LANDING_URL: ${{ vars.NEXT_PUBLIC_LANDING_URL }}
+        run: |
+          if [ -z "${NEXT_PUBLIC_LANDING_URL}" ]; then
+            echo "::error::The NEXT_PUBLIC_LANDING_URL Actions variable is unset on this repo. The image would ship unbranded. Set it with: gh variable set NEXT_PUBLIC_LANDING_URL -R ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+
+  # The patch set must apply to the pinned upstream tag. Runs on every PR, so a
+  # bump of UPSTREAM_REF whose patch no longer applies goes red here, not only
+  # inside the image build.
+  patch-check:
+    name: patch-check
+    if: github.event_name == 'pull_request'
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: bash scripts/patch-check.sh
+
   build:
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    needs: resolve
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main 2026-09-07, ignore-unfixed (.github#19)
     permissions:
       contents: write
       packages: write
@@ -36,12 +83,15 @@ jobs:
       component_path: .
       dockerfile_path: Dockerfile
       image_name: ghcr.io/zeroroot-ai/zitadel-login
-      tag_pattern: (v.*)
-      # Landing origin for the logo link + loginname back button (deploy#888).
-      # Sourced from an Actions variable so the hostname is never hardcoded in
-      # source (respects the deploy#630 guard). Set `NEXT_PUBLIC_LANDING_URL` as
-      # a repo/org Actions variable; empty -> patch renders inert (upstream UI).
+      # Ref-derived tags are not used; the version tag comes from UPSTREAM_REF.
+      # The input is required by the reusable workflow, so it names a pattern
+      # no ref of this repo matches.
+      tag_pattern: ^(never-matches)$
+      version_tag: ${{ needs.resolve.outputs.tag }}
       build_args: |
+        UPSTREAM_REPO=${{ needs.resolve.outputs.repo }}
+        UPSTREAM_TAG=${{ needs.resolve.outputs.tag }}
+        UPSTREAM_COMMIT=${{ needs.resolve.outputs.commit }}
         NEXT_PUBLIC_LANDING_URL=${{ vars.NEXT_PUBLIC_LANDING_URL }}
 
   # Iron-Bank-aligned post-build assertions (reusable-container-hardening.yml).
@@ -50,7 +100,7 @@ jobs:
   hardening:
     needs: build
     if: github.event_name != 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@cf1c48774b57e552ccdd17a2a4bba3f782587dbe # main, .github recreated 2026-09-06
+    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main 2026-09-07
     permissions:
       contents: read
       packages: read

@@ -10,11 +10,11 @@
 # a Dockerfile that clones upstream at the pinned tag and applies the patch
 # set (see README.md). The verbs map accordingly:
 #
-#   check — fast, offline structural gate: UPSTREAM_REF parses, the Dockerfile
-#           ARG pins match it (the "keep in lockstep" comment made executable),
+#   check — fast, offline structural gate: UPSTREAM_REF parses (the only
+#           version copy), the Dockerfile declares its ARGs with no defaults,
 #           and the patch set exists.
-#   test  — patch-set apply-check against the pinned upstream tag (README
-#           per-bump checklist step 3). Needs network; shallow-clones upstream.
+#   test  — patch-set apply-check against the pinned upstream tag
+#           (scripts/patch-check.sh, also the PR job). Needs network.
 #   build — the container image IS the build artifact (docker build).
 #   image — alias of build.
 # ============================================================================
@@ -26,47 +26,32 @@ NEXT_PUBLIC_LANDING_URL ?=
 
 all: check ## Default: run the fast offline gate
 
-check: ## Offline gate: UPSTREAM_REF <-> Dockerfile pin lockstep + patches exist
+check: ## Offline gate: UPSTREAM_REF parses, the Dockerfile carries no version of its own, patches exist
 	@set -eu; \
-	REPO=$$(sed -n 's/^REPO=//p' UPSTREAM_REF); \
-	TAG=$$(sed -n 's/^TAG=//p' UPSTREAM_REF); \
-	COMMIT=$$(sed -n 's/^COMMIT=//p' UPSTREAM_REF); \
-	[ -n "$$REPO" ] && [ -n "$$TAG" ] && [ -n "$$COMMIT" ] || \
-	  { echo "FAIL: UPSTREAM_REF must define REPO, TAG and COMMIT"; exit 1; }; \
-	echo "$$COMMIT" | grep -qE '^[0-9a-f]{40}$$' || \
-	  { echo "FAIL: UPSTREAM_REF COMMIT is not a full 40-char SHA"; exit 1; }; \
-	grep -qF "ARG UPSTREAM_REPO=$$REPO" Dockerfile || \
-	  { echo "FAIL: Dockerfile ARG UPSTREAM_REPO drifted from UPSTREAM_REF ($$REPO)"; exit 1; }; \
-	grep -qF "ARG UPSTREAM_TAG=$$TAG" Dockerfile || \
-	  { echo "FAIL: Dockerfile ARG UPSTREAM_TAG drifted from UPSTREAM_REF ($$TAG)"; exit 1; }; \
-	grep -qF "ARG UPSTREAM_COMMIT=$$COMMIT" Dockerfile || \
-	  { echo "FAIL: Dockerfile ARG UPSTREAM_COMMIT drifted from UPSTREAM_REF ($$COMMIT)"; exit 1; }; \
+	bash scripts/upstream-ref.sh --selftest >/dev/null; \
+	bash scripts/patch-check.sh --selftest >/dev/null; \
+	bash scripts/upstream-ref.sh >/dev/null; \
+	for A in UPSTREAM_REPO UPSTREAM_TAG UPSTREAM_COMMIT NEXT_PUBLIC_LANDING_URL; do \
+	  grep -qxE "ARG $$A" Dockerfile || \
+	    { echo "FAIL: Dockerfile must declare 'ARG $$A' with no default; UPSTREAM_REF is the only copy"; exit 1; }; \
+	  ! grep -qE "^ARG $$A=" Dockerfile || \
+	    { echo "FAIL: Dockerfile gives ARG $$A a default; delete it, the value comes from UPSTREAM_REF"; exit 1; }; \
+	done; \
 	ls patches/*.patch >/dev/null 2>&1 || \
 	  { echo "FAIL: patches/ contains no .patch files"; exit 1; }; \
-	echo "OK: UPSTREAM_REF ($$TAG @ $$COMMIT) matches Dockerfile pins; patch set present"
+	echo "OK: UPSTREAM_REF ($$(bash scripts/upstream-ref.sh TAG) @ $$(bash scripts/upstream-ref.sh COMMIT)) is the only version copy; patch set present"
 
 test: ## Apply-check the patch set against the pinned upstream tag (needs network)
-	@set -eu; \
-	REPO=$$(sed -n 's/^REPO=//p' UPSTREAM_REF); \
-	TAG=$$(sed -n 's/^TAG=//p' UPSTREAM_REF); \
-	COMMIT=$$(sed -n 's/^COMMIT=//p' UPSTREAM_REF); \
-	WORK=$$(mktemp -d); trap 'rm -rf "$$WORK"' EXIT; \
-	echo "Cloning $$REPO @ $$TAG (shallow) ..."; \
-	git clone --quiet --depth 1 --branch "$$TAG" "$$REPO" "$$WORK/up"; \
-	ACTUAL=$$(git -C "$$WORK/up" rev-parse HEAD); \
-	[ "$$ACTUAL" = "$$COMMIT" ] || \
-	  { echo "FAIL: tag $$TAG resolved to $$ACTUAL, expected $$COMMIT (tag drift)"; exit 1; }; \
-	for P in $(CURDIR)/patches/*.patch; do \
-	  echo "apply-check $$P"; \
-	  git -C "$$WORK/up" apply -p1 --check "$$P" || \
-	    { echo "FAIL: $$P does not apply cleanly against $$TAG — hand-merge + regenerate (README.md)"; exit 1; }; \
-	done; \
-	echo "OK: patch set applies cleanly against $$TAG @ $$COMMIT"
+	@bash scripts/patch-check.sh
 
 build: ## Build the container image (clones upstream, applies patches, full Next.js build)
+	@test -n "$(NEXT_PUBLIC_LANDING_URL)" || { echo "FAIL: set NEXT_PUBLIC_LANDING_URL=<landing origin>; an empty value ships an unbranded image"; exit 1; }
 	docker build \
+		--build-arg UPSTREAM_REPO=$$(bash scripts/upstream-ref.sh REPO) \
+		--build-arg UPSTREAM_TAG=$$(bash scripts/upstream-ref.sh TAG) \
+		--build-arg UPSTREAM_COMMIT=$$(bash scripts/upstream-ref.sh COMMIT) \
 		--build-arg NEXT_PUBLIC_LANDING_URL=$(NEXT_PUBLIC_LANDING_URL) \
-		-t $(IMAGE_NAME):$$(sed -n 's/^TAG=//p' UPSTREAM_REF) .
+		-t $(IMAGE_NAME):$$(bash scripts/upstream-ref.sh TAG) .
 
 image: build ## Alias of build (the image is the only artifact)
 

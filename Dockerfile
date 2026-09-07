@@ -4,26 +4,31 @@
 # Login V2 Next.js app (zitadel/zitadel monorepo, apps/login). We do NOT vendor
 # the source: the builder stage clones upstream at the pinned tag, verifies the
 # commit SHA, applies our isolated patch set (patches/*.patch), then runs the
-# upstream build verbatim. Rebasing onto the next Zitadel tag is therefore a
-# two-line change in UPSTREAM_REF + this file's ARGs (see README.md).
+# upstream build verbatim. Rebasing onto the next Zitadel tag is therefore an
+# edit of UPSTREAM_REF plus a patch re-resolve (see README.md). This file
+# carries no version of its own.
 #
 # The runtime stage is a byte-for-byte copy of upstream apps/login/Dockerfile so
 # the image stays a drop-in replacement: same env contract, same ports, same
 # entrypoint/healthcheck. The chart (deploy) only swaps login.image.repository.
 
-# --- pinned upstream ref (keep in lockstep with UPSTREAM_REF) ---------------
-ARG UPSTREAM_REPO=https://github.com/zitadel/zitadel.git
-ARG UPSTREAM_TAG=v4.17.3
-ARG UPSTREAM_COMMIT=41b11149c6997eddd7e38390912e12ff5f918a73
+# --- upstream ref: NO defaults here. UPSTREAM_REF is the only copy ----------
+# The image workflow reads UPSTREAM_REF through scripts/upstream-ref.sh and
+# passes these as build args (zitadel-login#7). `make build` does the same.
+# A build without them fails in stage 1 instead of cloning a stale tag.
+ARG UPSTREAM_REPO
+ARG UPSTREAM_TAG
+ARG UPSTREAM_COMMIT
 
 # Landing origin for the logo link + loginname back button (deploy#888 patch).
 # NEVER hardcoded (respects the deploy#630 no-hardcoded-hostname guard) — passed
 # in via --build-arg from the CI workflow's `vars.NEXT_PUBLIC_LANDING_URL`.
-# Empty by default → the patch is inert and the UI renders exactly as upstream.
+# REQUIRED: an empty value used to render the patch inert and ship an
+# unbranded image (the first build, 2026-07-02). Stage 2 now fails.
 # NOTE: NEXT_PUBLIC_* is inlined into the client bundle at BUILD time (Next.js
 # semantics), so changing it requires a rebuild. The marketing landing origin is
 # stable and shared across envs, so a single baked value is the right tradeoff.
-ARG NEXT_PUBLIC_LANDING_URL=""
+ARG NEXT_PUBLIC_LANDING_URL
 
 # ---------------------------------------------------------------------------
 # Stage 1: fetch upstream source at the pinned tag and apply our patch set.
@@ -33,6 +38,8 @@ ARG UPSTREAM_REPO
 ARG UPSTREAM_TAG
 ARG UPSTREAM_COMMIT
 WORKDIR /src
+RUN test -n "${UPSTREAM_REPO}" && test -n "${UPSTREAM_TAG}" && test -n "${UPSTREAM_COMMIT}" \
+    || { echo "ERROR: UPSTREAM_REPO, UPSTREAM_TAG and UPSTREAM_COMMIT build args are required; they come from UPSTREAM_REF via scripts/upstream-ref.sh"; exit 1; }
 RUN git clone --depth 1 --branch "${UPSTREAM_TAG}" "${UPSTREAM_REPO}" . \
     && ACTUAL="$(git rev-parse HEAD)" \
     && if [ "${ACTUAL}" != "${UPSTREAM_COMMIT}" ]; then \
@@ -50,6 +57,8 @@ RUN for p in /patches/*.patch; do echo "applying $p"; git apply -p1 --verbose "$
 # ---------------------------------------------------------------------------
 FROM node:24@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS builder
 ARG NEXT_PUBLIC_LANDING_URL
+RUN test -n "${NEXT_PUBLIC_LANDING_URL}" \
+    || { echo "ERROR: NEXT_PUBLIC_LANDING_URL build arg is empty; the image would ship unbranded. Set the NEXT_PUBLIC_LANDING_URL Actions variable (CI) or pass --build-arg (local)."; exit 1; }
 ENV NEXT_PUBLIC_LANDING_URL=${NEXT_PUBLIC_LANDING_URL}
 WORKDIR /src
 COPY --from=source /src /src
