@@ -7,7 +7,7 @@ edits. We self-host the upstream app — we do **not** reimplement it.
 
 - Tracker: [deploy#888](https://github.com/zeroroot-ai/deploy/issues/888)
 - License: **MIT** (inherited from upstream `apps/login/LICENSE`; see `LICENSE`)
-- Image: `ghcr.io/zeroroot-ai/zitadel-login:<zitadel-version>` (e.g. `:v4.14.0`)
+- Image: `ghcr.io/zeroroot-ai/zitadel-login:<zitadel-version>` (e.g. `:v4.17.3`)
 
 ## Explicit non-goal
 
@@ -103,7 +103,7 @@ Per-bump checklist:
 ```bash
 docker build \
   --build-arg NEXT_PUBLIC_LANDING_URL=https://<your-landing-origin> \
-  -t ghcr.io/zeroroot-ai/zitadel-login:v4.14.0 .
+  -t ghcr.io/zeroroot-ai/zitadel-login:v4.17.3 .
 ```
 
 The build clones the upstream monorepo and runs the full pnpm + nx build, so it

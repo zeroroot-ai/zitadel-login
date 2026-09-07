@@ -9,5 +9,5 @@
 # set in patches/, and rebuild BEFORE the core bump merges (see README.md).
 
 REPO=https://github.com/zitadel/zitadel.git
-TAG=v4.14.0
-COMMIT=10b1af91d68700707d41e820545e478cf267511b
+TAG=v4.17.3
+COMMIT=41b11149c6997eddd7e38390912e12ff5f918a73

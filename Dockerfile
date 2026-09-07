@@ -13,8 +13,8 @@
 
 # --- pinned upstream ref (keep in lockstep with UPSTREAM_REF) ---------------
 ARG UPSTREAM_REPO=https://github.com/zitadel/zitadel.git
-ARG UPSTREAM_TAG=v4.14.0
-ARG UPSTREAM_COMMIT=10b1af91d68700707d41e820545e478cf267511b
+ARG UPSTREAM_TAG=v4.17.3
+ARG UPSTREAM_COMMIT=41b11149c6997eddd7e38390912e12ff5f918a73
 
 # Landing origin for the logo link + loginname back button (deploy#888 patch).
 # NEVER hardcoded (respects the deploy#630 no-hardcoded-hostname guard) — passed
@@ -67,10 +67,23 @@ RUN pnpm exec nx run @zitadel/proto:generate \
     && pnpm --filter @zitadel/login run build
 
 # ---------------------------------------------------------------------------
-# Stage 3: runtime — verbatim copy of upstream apps/login/Dockerfile so the
-# image remains a drop-in replacement (env contract / ports / entrypoint).
+# Stage 3: runtime — copy of upstream apps/login/Dockerfile so the image
+# remains a drop-in replacement (env contract / ports / entrypoint). The one
+# addition is the hardening RUN right after FROM; everything below it is
+# upstream verbatim.
 # ---------------------------------------------------------------------------
 FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
+# Hardening on top of the digest-pinned base (zitadel-login#1):
+#   * `apk upgrade` pulls the distro fixes that landed after the node image
+#     was built (2026-09: openssl 3.5.8-r0). The pin makes the base
+#     reproducible; the upgrade keeps it patched between dependabot bumps.
+#     Same pattern as gibson-executor#349.
+#   * The global npm tree is removed. Nothing at runtime uses npm/npx: the
+#     standalone server runs under plain `node` (see ENTRYPOINT/HEALTHCHECK).
+#     npm ships its own vendored deps (undici, tar, ip-address, ...) that
+#     lag behind their fixes and only add scan surface.
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

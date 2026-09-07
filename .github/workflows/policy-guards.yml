@@ -28,6 +28,11 @@
 
 name: policy-guards
 
+# Read-only token for the whole workflow. Every job is a reusable guard
+# that only reads the checkout; a reusable workflow cannot widen this.
+permissions:
+  contents: read
+
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
