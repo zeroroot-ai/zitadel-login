@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The Dockerfile pins its node bases by digest (zitadel-login#4). Dependabot
+# moves those pins when a newer node:24 / node:24-alpine index is published,
+# so the pin stays reproducible and current. Actions are pinned to commit
+# SHAs the same way (zitadel-login#3).
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
