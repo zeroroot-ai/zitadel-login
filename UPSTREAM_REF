@@ -5,8 +5,10 @@
 # together. The image we publish is tagged with TAG below so the chart override
 # and the core Zitadel image stay in lockstep.
 #
-# On every Zitadel version bump: update TAG + COMMIT here, re-resolve the patch
-# set in patches/, and rebuild BEFORE the core bump merges (see README.md).
+# This file is the ONLY copy of the version. scripts/upstream-ref.sh reads it
+# for the Dockerfile build args, the v<TAG> image tag and the patch check.
+# On every Zitadel version bump: update TAG + COMMIT here, run `make test` to
+# re-resolve the patch set, merge. The chart follows (README.md).
 
 REPO=https://github.com/zitadel/zitadel.git
 TAG=v4.17.3
