@@ -5,7 +5,6 @@ so that login-UI changes the Zitadel branding/label-policy API cannot express
 (logo click-through, back-button behavior, page chrome) become ordinary code
 edits. We self-host the upstream app — we do **not** reimplement it.
 
-- Tracker: [deploy#888](https://github.com/zeroroot-ai/deploy/issues/888)
 - License: **MIT** (inherited from upstream `apps/login/LICENSE`; see `LICENSE`)
 - Image: `ghcr.io/zeroroot-ai/zitadel-login:<upstream-tag>`, published by every push to `main` from the tag in `UPSTREAM_REF`
 
@@ -112,5 +111,11 @@ landing URL.
 The build clones the upstream monorepo and runs the full pnpm + nx build, so it
 needs network access and is resource-heavy (a Next.js 16 / React 19 monorepo
 build). CI runs it on GitHub-hosted runners via `image.yml`.
+
+## License and history
+
+MIT, inherited from the upstream `apps/login/LICENSE`. See [LICENSE](LICENSE).
+
+Issue and pull request numbers cited in comments and documents dated before 2026-09-05 refer to the tracker before the history reset, archived offline. They do not resolve on GitHub.
 
 [upstream]: https://github.com/zitadel/zitadel/tree/main/apps/login
