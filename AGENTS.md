@@ -33,4 +33,3 @@ customization surface.
 ## Links
 
 - Org-level workflow: [`AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md)
-- Fork tracker: [deploy#888](https://github.com/zeroroot-ai/deploy/issues/888)
