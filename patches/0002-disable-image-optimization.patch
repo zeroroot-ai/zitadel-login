@@ -1,0 +1,31 @@
+diff --git a/apps/login/next.config.mjs b/apps/login/next.config.mjs
+index ce25fab..f34ed47 100755
+--- a/apps/login/next.config.mjs
++++ b/apps/login/next.config.mjs
+@@ -57,6 +57,26 @@ const nextConfig = {
+     '@opentelemetry/resource-detector-container',
+     '@opentelemetry/resource-detector-gcp',
+   ],
++  // zeroroot fork patch: the Image Optimization API is removed.
++  //
++  // GHSA-2xp9-vwfh-vxw4 / CVE-2026-75604 is an UNAUTHENTICATED remote code
++  // execution in that API when an AVIF file is processed, fixed in next
++  // 16.3.3. This app is pinned to whatever upstream Zitadel's lockfile
++  // carries (16.2.11 at v4.17.3), and it is the login page — reachable
++  // before any authentication, from the internet.
++  //
++  // Nothing here uses it. `next/image` appears in exactly one file in the
++  // whole app and that file is a test mock; the branding logo renders
++  // through a plain <img> (src/components/logo.tsx). So the optimizer is
++  // dead weight that happens to be the vulnerable surface, and turning it
++  // off removes the /_next/image route rather than narrowing its input.
++  //
++  // This is NOT a substitute for the version bump. It removes the exposure
++  // now; the alert stays open until upstream Zitadel ships a lockfile with
++  // a fixed next, because Trivy reads the package version, not the config.
++  images: {
++    unoptimized: true,
++  },
+   // Improve SSR stability - not actually needed for React 19 SSR issues
+   // onDemandEntries: {
+   //   maxInactiveAge: 25 * 1000,

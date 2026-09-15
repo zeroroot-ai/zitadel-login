@@ -37,7 +37,33 @@ contract, same port (`3000`), same entrypoint and healthcheck. The deploy chart
 swaps only `login.image.repository`; core Zitadel is untouched, and the existing
 Stakater Reloader branding cache-bust (deploy#943) keeps working unchanged.
 
-## The customization patch (`patches/0001-zeroroot-login-customizations.patch`)
+## The patches
+
+Two, applied in order by `git apply -p1`:
+
+### `0002-disable-image-optimization.patch`
+
+One key in `next.config.mjs`: `images.unoptimized = true`, which removes the
+`/_next/image` route.
+
+GHSA-2xp9-vwfh-vxw4 / CVE-2026-75604 is an **unauthenticated** remote code
+execution in that API when an AVIF file is processed, fixed in next `16.3.3`.
+This app takes whatever next version upstream Zitadel's lockfile carries
+(`16.2.11` at `v4.17.3`, built `--frozen-lockfile`), and it is the login page:
+reachable before any authentication, from the internet.
+
+Nothing here uses the optimizer. `next/image` appears in exactly one file in
+the app and that file is a test mock; the branding logo renders through a
+plain `<img>` in `src/components/logo.tsx`. So the route is dead weight that
+happens to be the vulnerable surface, and this removes it rather than
+narrowing its input.
+
+It does **not** close the alert. Trivy reads the package version, not the
+config, so `next 16.2.11` stays flagged until upstream ships a lockfile with a
+fixed version. Re-check on every `UPSTREAM_REF` bump and drop this patch when
+the pinned lockfile is at `16.3.3` or later.
+
+### `0001-zeroroot-login-customizations.patch`
 
 Three files, ~44 lines, all guarded by config so the diff is **inert by
 default** (renders exactly as upstream when unconfigured):
