@@ -70,7 +70,7 @@ jobs:
 
   build:
     needs: resolve
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main 2026-09-07, ignore-unfixed (.github#19)
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@625c0b92ef329bfe40f11f639ee6136c8706538b # main, 2026-09-16: licence label, not NOASSERTION (.github#80)
     permissions:
       contents: write
       packages: write
