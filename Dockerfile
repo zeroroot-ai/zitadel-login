@@ -65,6 +65,28 @@ COPY --from=source /src /src
 RUN corepack enable
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
+
+# Security bumps on top of the upstream lockfile.
+#
+# The install above is deliberately `--frozen-lockfile`, so editing a version in
+# apps/login/package.json makes pnpm refuse the install outright, and patching
+# pnpm-lock.yaml means a thousand-line diff that breaks on every upstream bump.
+# So: install exactly what upstream locked, then move the two packages that ship
+# a known hole, and prove the move happened.
+#
+# The logic lives in a script because it needs two different mechanisms - a
+# filtered `add` for a direct dependency, a pnpm override for a transitive one -
+# and nesting that in a Dockerfile RUN is how the first attempt shipped a
+# version check that could never resolve. scripts/security-bumps.sh explains
+# both.
+#
+# Drop this the moment an upstream tag ships next 16.3.3+.
+ARG NEXT_FLOOR=16.3.3
+ARG SHARP_FLOOR=0.35.4
+COPY scripts/security-bumps.sh /tmp/security-bumps.sh
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    NEXT_FLOOR="${NEXT_FLOOR}" SHARP_FLOOR="${SHARP_FLOOR}" sh /tmp/security-bumps.sh \
+    && rm -f /tmp/security-bumps.sh
 # Build the standalone bundle in explicit dependency order (proto generate ->
 # client build -> login standalone). Using the exact package names (not the
 # short nx project alias) keeps this robust across nx project-naming changes.
