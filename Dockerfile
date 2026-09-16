@@ -68,37 +68,25 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 
 # Security bumps on top of the upstream lockfile.
 #
-# WHY THIS IS NOT A PATCH TO package.json. The install above is deliberately
-# `--frozen-lockfile`, so editing a version in `apps/login/package.json` makes
-# pnpm refuse the install outright. Patching `pnpm-lock.yaml` instead means
-# carrying a thousand-line diff that breaks on every upstream bump. So: install
-# exactly what upstream locked, then move the two packages that ship a known
-# hole, and PROVE the move happened.
+# The install above is deliberately `--frozen-lockfile`, so editing a version in
+# apps/login/package.json makes pnpm refuse the install outright, and patching
+# pnpm-lock.yaml means a thousand-line diff that breaks on every upstream bump.
+# So: install exactly what upstream locked, then move the two packages that ship
+# a known hole, and prove the move happened.
 #
-#   next 16.2.11 → 16.3.3
-#     CVE-2026-75604 / GHSA-2xp9-vwfh-vxw4, both CRITICAL: unauthenticated
-#     remote code execution, reachable on a page served before login. This
-#     image is the login UI, so that page is its entire job.
-#   sharp 0.35.3 → 0.35.4
-#     GHSA-rgj7-g3m4-5g8c, HIGH.
+# The logic lives in a script because it needs two different mechanisms - a
+# filtered `add` for a direct dependency, a pnpm override for a transitive one -
+# and nesting that in a Dockerfile RUN is how the first attempt shipped a
+# version check that could never resolve. scripts/security-bumps.sh explains
+# both.
 #
-# Measured 2026-09-16: zitadel v4.17.3 is upstream's NEWEST release and still
-# pins next 16.2.11, so waiting for upstream is not a fix — it is the status quo
-# with extra steps. Drop these lines the moment an upstream tag ships 16.3.3+.
-#
-# The assertion is the point. A silent no-op here would leave the image
-# vulnerable while the Dockerfile claims otherwise.
+# Drop this the moment an upstream tag ships next 16.3.3+.
 ARG NEXT_FLOOR=16.3.3
 ARG SHARP_FLOOR=0.35.4
+COPY scripts/security-bumps.sh /tmp/security-bumps.sh
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    set -eux; \
-    pnpm --filter @zitadel/login add "next@${NEXT_FLOOR}"; \
-    pnpm add -w "sharp@${SHARP_FLOOR}"; \
-    got_next="$(node -p "require('/src/node_modules/next/package.json').version")"; \
-    got_sharp="$(node -p "require('/src/node_modules/sharp/package.json').version")"; \
-    echo "next=${got_next} sharp=${got_sharp}"; \
-    [ "${got_next}" = "${NEXT_FLOOR}" ] || { echo "FAIL: next is ${got_next}, expected ${NEXT_FLOOR}" >&2; exit 1; }; \
-    [ "${got_sharp}" = "${SHARP_FLOOR}" ] || { echo "FAIL: sharp is ${got_sharp}, expected ${SHARP_FLOOR}" >&2; exit 1; }
+    NEXT_FLOOR="${NEXT_FLOOR}" SHARP_FLOOR="${SHARP_FLOOR}" sh /tmp/security-bumps.sh \
+    && rm -f /tmp/security-bumps.sh
 # Build the standalone bundle in explicit dependency order (proto generate ->
 # client build -> login standalone). Using the exact package names (not the
 # short nx project alias) keeps this robust across nx project-naming changes.
