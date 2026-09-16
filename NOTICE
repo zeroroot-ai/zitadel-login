@@ -1,0 +1,35 @@
+zeroroot-ai/zitadel-login
+
+This product is a modified version of the ZITADEL Login V2 application.
+
+Upstream project
+  ZITADEL, https://github.com/zitadel/zitadel (apps/login)
+  Copyright (c) 2023 ZITADEL
+  Licensed under the MIT License.
+
+The upstream MIT text is in LICENSE, unchanged, and it governs both the
+upstream source and the modifications described below.
+
+Upstream version
+  This repository vendors no upstream source. The Docker build clones the
+  tag and commit pinned in UPSTREAM_REF and applies the patches in patches/.
+  UPSTREAM_REF is the single copy of that version. The published image
+  ghcr.io/zeroroot-ai/zitadel-login is tagged with the same upstream tag.
+
+Modifications
+  Copyright 2026 Zero Root AI. Zero Root AI modified the upstream
+  application with two patches, both described in README.md:
+
+  patches/0001-zeroroot-login-customizations.patch
+    Wraps the brand logo in a link to NEXT_PUBLIC_LANDING_URL, gives the
+    back button an optional href, and points the loginname page's back
+    button at that landing origin. Three files. The diff renders exactly
+    as upstream when NEXT_PUBLIC_LANDING_URL is unset.
+
+  patches/0002-disable-image-optimization.patch
+    Sets images.unoptimized in next.config.mjs, which removes the
+    /_next/image route. Nothing in the app uses the image optimizer.
+
+Neither patch changes an authentication flow. Password, MFA, passkey,
+password reset, external identity providers and account selection are
+upstream code, unchanged.

@@ -142,6 +142,8 @@ build). CI runs it on GitHub-hosted runners via `image.yml`.
 
 MIT, inherited from the upstream `apps/login/LICENSE`. See [LICENSE](LICENSE).
 
+The published image is a modified work. [NOTICE](NOTICE) names the upstream project, the pinned version and the two patches.
+
 Issue and pull request numbers cited in comments and documents dated before 2026-09-05 refer to the tracker before the history reset, archived offline. They do not resolve on GitHub.
 
 [upstream]: https://github.com/zitadel/zitadel/tree/main/apps/login
