@@ -77,11 +77,16 @@ RUN pnpm exec nx run @zitadel/proto:generate \
 
 # ---------------------------------------------------------------------------
 # Stage 3: runtime — copy of upstream apps/login/Dockerfile so the image
-# remains a drop-in replacement (env contract / ports / entrypoint). The one
-# addition is the hardening RUN right after FROM; everything below it is
-# upstream verbatim.
+# remains a drop-in replacement (env contract / ports / entrypoint). It has
+# exactly TWO deliberate departures from upstream, both marked below:
+#   1. the hardening RUN right after FROM (apk upgrade + npm removal);
+#   2. the LICENSE/NOTICE copy at the end of the file.
+# Everything between them is upstream verbatim. Do NOT delete either one to
+# "restore upstream fidelity" — (2) in particular is a license obligation,
+# not a style choice. See the comment on each.
 # ---------------------------------------------------------------------------
 FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
+# --- departure 1 of 2 from upstream apps/login/Dockerfile -------------------
 # Hardening on top of the digest-pinned base (zitadel-login#1):
 #   * `apk upgrade` pulls the distro fixes that landed after the node image
 #     was built (2026-09: openssl 3.5.8-r0). The pin makes the base
@@ -114,3 +119,19 @@ ENV HOSTNAME="::" \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ["/usr/local/bin/node", "/app/healthcheck.mjs", "/ui/v2/login/ready"]
 ENTRYPOINT ["/app/entrypoint.sh", "node", "apps/login/server.js"]
+
+# --- departure 2 of 2 from upstream apps/login/Dockerfile -------------------
+# This image redistributes ZITADEL's MIT-licensed code. MIT requires the
+# copyright and permission notice in "all copies or substantial portions of
+# the Software", and a published image is a copy. LICENSE is the upstream MIT
+# text, unchanged. NOTICE names the upstream project and this fork's two
+# patches. /licenses is the OCI convention.
+#
+# Upstream does not ship these because upstream's build context is the Zitadel
+# monorepo, not this repo. Removing them would make the published image
+# violate the license it is distributed under, so they stay.
+#
+# Last in the file on purpose: a COPY from the build context invalidates every
+# layer below it, and there is none below this one.
+COPY LICENSE /licenses/LICENSE
+COPY NOTICE /licenses/NOTICE
