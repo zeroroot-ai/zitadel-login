@@ -38,6 +38,31 @@ node -e '
 '
 pnpm install --no-frozen-lockfile
 
+# next 16.3 type-checks files that 16.2 did not, and upstream's
+# apps/login/tsconfig.json includes "**/*.ts" while excluding only node_modules,
+# acceptance, dockerized and vitest.config*. That pulls upstream's own .test.ts
+# files into the PRODUCTION build's type check, and they do not pass it.
+#
+# Measured: ~30 errors on the 16.3.3 build, every single one in a .test.ts file
+# (loginname, password, verify, session, verify-helper). Not one in application
+# source. So this is not "the app does not work on 16.3" - it is the build
+# type-checking files it does not ship.
+#
+# Narrowing the exclude list is the correct scope. It is NOT
+# `typescript.ignoreBuildErrors`, which would switch off type checking for the
+# real source too and hide a genuine break behind the same flag.
+node -e '
+  const fs = require("fs"), f = "/src/apps/login/tsconfig.json";
+  const t = JSON.parse(fs.readFileSync(f, "utf8"));
+  const want = ["**/*.test.ts", "**/*.test.tsx"];
+  t.exclude = Array.from(new Set((t.exclude || []).concat(want)));
+  fs.writeFileSync(f, JSON.stringify(t, null, 2));
+  for (const w of want) {
+    if (!t.exclude.includes(w)) { console.error("FAIL: " + w + " missing from exclude"); process.exit(1); }
+  }
+  console.log("tsconfig exclude: " + t.exclude.join(", "));
+'
+
 # Prove it. A silent no-op here would ship a vulnerable image while the
 # Dockerfile claimed otherwise, which is the whole reason this file exists.
 got_next=$(pnpm --filter @zitadel/login exec node -p "require('next/package.json').version")
