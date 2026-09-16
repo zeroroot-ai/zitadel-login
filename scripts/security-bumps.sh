@@ -29,12 +29,31 @@ cd /src
 
 pnpm --filter @zitadel/login add "next@${NEXT_FLOOR}"
 
-node -e '
+# TRANSITIVE_OVERRIDES — "<name>@<version>" per line, whitespace separated.
+# Everything here is pulled in by something else, so `pnpm add` would install a
+# second copy at the root and leave what the app resolves untouched. A pnpm
+# override is the mechanism that actually moves a transitive dependency.
+#
+#   sharp@0.35.4                               GHSA-rgj7-g3m4-5g8c, HIGH
+#   @opentelemetry/propagator-jaeger@2.9.0     CVE-2026-59892, HIGH
+#
+# Add a line when a scan finds a fixable transitive CVE upstream has not moved.
+# Delete one the moment an upstream tag ships the fixed version.
+TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0}"
+
+TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES}" node -e '
   const fs = require("fs"), f = "/src/package.json";
   const p = JSON.parse(fs.readFileSync(f, "utf8"));
+  const add = {};
+  for (const spec of (process.env.TRANSITIVE_OVERRIDES || "").split(/\s+/).filter(Boolean)) {
+    const at = spec.lastIndexOf("@");
+    if (at <= 0) { console.error("FAIL: bad override spec: " + spec); process.exit(1); }
+    add[spec.slice(0, at)] = spec.slice(at + 1);
+  }
   p.pnpm = p.pnpm || {};
-  p.pnpm.overrides = Object.assign({}, p.pnpm.overrides, { sharp: process.env.SHARP_FLOOR });
+  p.pnpm.overrides = Object.assign({}, p.pnpm.overrides, add);
   fs.writeFileSync(f, JSON.stringify(p, null, 2));
+  console.log("overrides: " + Object.entries(add).map(([k, v]) => k + "@" + v).join(", "));
 '
 pnpm install --no-frozen-lockfile
 
@@ -80,3 +99,17 @@ case "${got_sharp}" in
   absent|"${SHARP_FLOOR}") ;;
   *) echo "FAIL: sharp is ${got_sharp}, expected ${SHARP_FLOOR} or absent" >&2; exit 1 ;;
 esac
+
+# Every override must have taken, or be absent from the tree entirely. An
+# override that silently did nothing is the failure mode this whole file exists
+# to prevent.
+for spec in ${TRANSITIVE_OVERRIDES}; do
+  name="${spec%@*}"; want="${spec##*@}"
+  got=$(pnpm --filter @zitadel/login exec node -p \
+    "try { require('${name}/package.json').version } catch (e) { 'absent' }")
+  echo "${name}=${got} (want ${want} or absent)"
+  case "${got}" in
+    absent|"${want}") ;;
+    *) echo "FAIL: ${name} is ${got}, expected ${want} or absent" >&2; exit 1 ;;
+  esac
+done
