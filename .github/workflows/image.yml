@@ -70,7 +70,7 @@ jobs:
 
   build:
     needs: resolve
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@0fed78673650eb244156e92f3a37ab7411e39750 # main, 2026-09-16: arm the pre-push vulnerability gate (.github#85)
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@271a10c5de3fd796ef375da9658b569ab17d1ad5 # v0.2.0
     permissions:
       contents: write
       packages: write
@@ -106,7 +106,7 @@ jobs:
     # A workflow_dispatch on main re-runs the fan-out by hand, for example
     # after the App secret was missing on the first push (run 34139336828).
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@03e20c0508d3dae2d7f34ab03c4fe60123456957 # main 2026-09-07, push lease (.github#38, #39)
+    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@271a10c5de3fd796ef375da9658b569ab17d1ad5 # v0.2.0
     permissions:
       contents: read
       packages: read
@@ -122,7 +122,7 @@ jobs:
   hardening:
     needs: build
     if: github.event_name != 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@ff1284a9ffcb2cd1d2437de2b5bd214de24878b3 # main 2026-09-07
+    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@271a10c5de3fd796ef375da9658b569ab17d1ad5 # v0.2.0
     permissions:
       contents: read
       packages: read
