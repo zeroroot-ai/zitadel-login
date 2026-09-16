@@ -31,9 +31,13 @@ is a small, isolated patch set on top of a pinned upstream tag:
 | `Dockerfile` | Multi-stage: clone upstream @ tag → verify SHA → apply patches → upstream build → upstream runtime. Carries no version; the tag, commit and landing URL are required build args. |
 | `.github/workflows/image.yml` | Reads `UPSTREAM_REF`, runs the patch check on PRs, builds + publishes the image tagged `<upstream-tag>` via the org `reusable-image-build.yml`. |
 
-The runtime stage of the `Dockerfile` is a verbatim copy of upstream
+The runtime stage of the `Dockerfile` follows upstream
 `apps/login/Dockerfile`, so the image is a **drop-in replacement**: same env
-contract, same port (`3000`), same entrypoint and healthcheck. The deploy chart
+contract, same port (`3000`), same entrypoint and healthcheck. It departs from
+upstream in exactly two places, both marked in the file: the hardening `RUN`
+after `FROM`, and the `COPY` of `LICENSE` and `NOTICE` into `/licenses` at the
+end. MIT requires that notice to travel with every copy, so neither is
+optional. The deploy chart
 swaps only `login.image.repository`; core Zitadel is untouched, and the existing
 Stakater Reloader branding cache-bust (deploy#943) keeps working unchanged.
 
