@@ -39,7 +39,7 @@ after `FROM`, and the `COPY` of `LICENSE` and `NOTICE` into `/licenses` at the
 end. MIT requires that notice to travel with every copy, so neither is
 optional. The deploy chart
 swaps only `login.image.repository`; core Zitadel is untouched, and the existing
-Stakater Reloader branding cache-bust (deploy#943) keeps working unchanged.
+Stakater Reloader branding cache-bust keeps working unchanged.
 
 ## The patches
 
@@ -84,7 +84,7 @@ default** (renders exactly as upstream when unconfigured):
 
 ### No hardcoded hostnames
 
-The landing origin is **never** hardcoded (respects the deploy#630
+The landing origin is **never** hardcoded (respects the
 no-hardcoded-hostname guard). It is injected at image-build time via the
 `NEXT_PUBLIC_LANDING_URL` build arg, sourced from the `NEXT_PUBLIC_LANDING_URL`
 Actions variable in `image.yml`. `NEXT_PUBLIC_*` is inlined into the client
