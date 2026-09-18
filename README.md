@@ -41,6 +41,27 @@ optional. The deploy chart
 swaps only `login.image.repository`; core Zitadel is untouched, and the existing
 Stakater Reloader branding cache-bust keeps working unchanged.
 
+## Transport to the Zitadel API
+
+The runtime stage ships `ZITADEL_TLS_ENABLED="false"`, the same default as
+upstream `apps/login/Dockerfile`. That flag governs the login app's own
+connection to the Zitadel core API, not the browser's connection to the login
+page. The image does not choose the API endpoint; the deployment does, and the
+two settings have to agree:
+
+| Setting | Where the chart sets it | Value in the umbrella |
+|---|---|---|
+| `ZITADEL_API_URL` | `zitadel.login.env` (charts, `helm/gibson/values.yaml`) | `http://gibson-zitadel:8080`, the core Service on the pod network |
+| `ZITADEL_TLS_ENABLED` | `zitadel.login.env`, or unset to take the image default | unset, so `false`, matching the `http://` URL |
+
+In the umbrella the login pod and the core pod run in one namespace behind
+the namespace default-deny NetworkPolicy, and the hop between them never
+leaves the cluster network. A deployment that fronts the core API with TLS
+sets both keys in `zitadel.login.env`: an `https://` `ZITADEL_API_URL` and
+`ZITADEL_TLS_ENABLED=true`. Setting only the flag makes the app dial TLS to a
+plaintext port and every login fails on the handshake. The image default is
+not a statement that plaintext is acceptable on the open network.
+
 ## The patches
 
 Two, applied in order by `git apply -p1`:
