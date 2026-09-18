@@ -36,10 +36,11 @@ pnpm --filter @zitadel/login add "next@${NEXT_FLOOR}"
 #
 #   sharp@0.35.4                               GHSA-rgj7-g3m4-5g8c, HIGH
 #   @opentelemetry/propagator-jaeger@2.9.0     CVE-2026-59892, HIGH
+#   @opentelemetry/core@2.8.0                  CVE-2026-54285, MEDIUM (zitadel-login#15)
 #
 # Add a line when a scan finds a fixable transitive CVE upstream has not moved.
 # Delete one the moment an upstream tag ships the fixed version.
-TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0}"
+TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0 @opentelemetry/core@2.8.0}"
 
 TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES}" node -e '
   const fs = require("fs"), f = "/src/package.json";
