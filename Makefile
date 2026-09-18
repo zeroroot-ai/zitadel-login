@@ -30,6 +30,7 @@ check: ## Offline gate: UPSTREAM_REF parses, the Dockerfile carries no version o
 	@set -eu; \
 	bash scripts/upstream-ref.sh --selftest >/dev/null; \
 	bash scripts/patch-check.sh --selftest >/dev/null; \
+	bash scripts/check-image-route-gone.sh --selftest >/dev/null; \
 	bash scripts/upstream-ref.sh >/dev/null; \
 	for A in UPSTREAM_REPO UPSTREAM_TAG UPSTREAM_COMMIT NEXT_PUBLIC_LANDING_URL; do \
 	  grep -qxE "ARG $$A" Dockerfile || \
