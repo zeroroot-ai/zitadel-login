@@ -72,7 +72,11 @@ jobs:
     needs: resolve
     uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
     permissions:
-      contents: write
+      # The reusable build declares what it needs and narrows to
+      # contents: read itself. A write-scoped token on a job that clones
+      # upstream and runs its install scripts, on every pull request, was
+      # the finding; nothing here creates a release, pushes or tags.
+      contents: read
       packages: write
       id-token: write
       attestations: write
@@ -119,6 +123,32 @@ jobs:
   # Iron-Bank-aligned post-build assertions (reusable-container-hardening.yml).
   # forbid_shell is false: the runtime is node:24-alpine and the upstream
   # entrypoint is a /bin/sh script (entrypoint.sh), so a shell is required.
+  # The whole exposure argument of this image rests on one Next.js config
+  # key (images.unoptimized, patches/0002) whose effect on the standalone
+  # server's route table the repo only asserted. This job starts the image
+  # it just built and proves the optimizer is not there: /_next/image must
+  # not answer with an image. It runs on the pushed digest, so like the
+  # hardening job it cannot run on a pull request (nothing is pushed there).
+  image-route-gone:
+    name: the image optimizer route is gone
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to ghcr.io
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Prove /_next/image is not served
+        env:
+          IMAGE: ghcr.io/zeroroot-ai/zitadel-login@${{ needs.build.outputs.digest }}
+        run: bash scripts/check-image-route-gone.sh "$IMAGE"
+
   hardening:
     needs: build
     if: github.event_name != 'pull_request'
