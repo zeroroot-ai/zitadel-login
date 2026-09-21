@@ -11,5 +11,5 @@
 # re-resolve the patch set, merge. The chart follows (README.md).
 
 REPO=https://github.com/zitadel/zitadel.git
-TAG=v4.17.3
-COMMIT=41b11149c6997eddd7e38390912e12ff5f918a73
+TAG=v4.18.0
+COMMIT=6d7878a2e4128517684f43ba7774dd4a9f64ba36
