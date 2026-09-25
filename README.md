@@ -91,9 +91,9 @@ adding a new key.
 This is the one deliberate exception to "chrome only, no interactive-flow
 patches" below: it does not touch credential verification, MFA, passkeys,
 password reset or external IdPs, and it changes exactly one terminal step,
-what happens after Zitadel itself says the request record is gone. Filed as
-zeroroot-ai/hosted#196; offered upstream (see the PR description for the
-link). See `oidc.test.ts` and `saml.test.ts` for the reproduction.
+what happens after Zitadel itself says the request record is gone. Offered
+upstream as [zitadel/zitadel#12821][upstream-issue-vanished-auth-request]. See
+`oidc.test.ts` and `saml.test.ts` for the reproduction.
 
 ### `0002-disable-image-optimization.patch`
 
@@ -203,3 +203,4 @@ The published image is a modified work. [NOTICE](NOTICE) names the upstream proj
 Issue and pull request numbers cited in comments and documents dated before 2026-09-05 refer to the tracker before the history reset, archived offline. They do not resolve on GitHub.
 
 [upstream]: https://github.com/zitadel/zitadel/tree/main/apps/login
+[upstream-issue-vanished-auth-request]: https://github.com/zitadel/zitadel/issues/12821
