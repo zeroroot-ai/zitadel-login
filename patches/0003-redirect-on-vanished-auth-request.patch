@@ -1,0 +1,298 @@
+diff --git a/apps/login/src/app/(login)/loginname/page.tsx b/apps/login/src/app/(login)/loginname/page.tsx
+index 7b12c1e..139e6b2 100644
+--- a/apps/login/src/app/(login)/loginname/page.tsx
++++ b/apps/login/src/app/(login)/loginname/page.tsx
+@@ -1,3 +1,4 @@
++import { Alert, AlertType } from "@/components/alert";
+ import { DynamicTheme } from "@/components/dynamic-theme";
+ import { SignInWithIdp } from "@/components/sign-in-with-idp";
+ import { Translated } from "@/components/translated";
+@@ -22,6 +23,9 @@ export default async function Page(props: { searchParams: Promise<Record<string
+   const organization = searchParams?.organization;
+   const orgDomain = searchParams?.orgDomain;
+   const submit: boolean = searchParams?.submit === "true";
++  // Set by loginWithOIDCAndSession / loginWithSAMLAndSession when the sign-in
++  // request they were asked to complete no longer exists.
++  const requestExpired = searchParams?.requestExpired === "true";
+ 
+   // With an org domain suffix the login name may only be the local part (the
+   // form shows the suffix separately), so put it back together for the IdP
+@@ -61,6 +65,12 @@ export default async function Page(props: { searchParams: Promise<Record<string
+         </p>
+       </div>
+ 
++      {requestExpired && (
++        <Alert type={AlertType.INFO}>
++          <Translated i18nKey="sessionExpired" namespace="error" />
++        </Alert>
++      )}
++
+       <div className="w-full">
+         {loginSettings?.allowLocalAuthentication && (
+           <UsernameForm
+diff --git a/apps/login/src/lib/oidc.test.ts b/apps/login/src/lib/oidc.test.ts
+index f192a0f..fa37726 100644
+--- a/apps/login/src/lib/oidc.test.ts
++++ b/apps/login/src/lib/oidc.test.ts
+@@ -13,7 +13,7 @@ vi.mock("@/lib/grpc/interceptors/error-classification", () => ({
+ }));
+ 
+ vi.mock("@zitadel/client", () => ({
+-  Code: { FailedPrecondition: 9 },
++  Code: { FailedPrecondition: 9, NotFound: 5 },
+   ConnectError: class MockConnectError extends Error {
+     code: number;
+     constructor(msg: string, code: number) {
+@@ -189,6 +189,38 @@ describe("loginWithOIDCAndSession", () => {
+     expect(result).toEqual({ error: "Unknown error occurred" });
+   });
+ 
++  // A browser reopens a login URL whose auth request
++  // no longer exists (e.g. the Zitadel instance that issued it was rebuilt).
++  // CreateCallback then answers not_found ("Auth Request does not exist",
++  // COMMAND-jae5P) instead of failed-precondition, and the fix must route
++  // that case to a fresh sign-in rather than "Unknown error occurred".
++  it("should redirect to a fresh sign-in when the auth request no longer exists (NotFound)", async () => {
++    const { ConnectError } = await import("@zitadel/client");
++    vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
++    vi.mocked(zitadelModule.createCallback).mockRejectedValue(
++      new ConnectError("Auth Request does not exist (COMMAND-jae5P)", 5),
++    );
++
++    const result = await loginWithOIDCAndSession({
++      serviceUrl: mockServiceUrl,
++      authRequest: mockAuthRequest,
++      sessionId: mockSessionId,
++      sessions: mockSessions,
++      sessionCookies: mockCookies,
++    });
++
++    expect(result).toHaveProperty("redirect");
++    if ("redirect" in result) {
++      expect(result.redirect).toContain("/loginname");
++      expect(result.redirect).toContain("requestExpired=true");
++      expect(result.redirect).toContain("loginName=test%40example.com");
++      expect(result.redirect).toContain("organization=org-123");
++    }
++    // getLoginSettings is only fetched on the failed-precondition path;
++    // the NotFound path never calls it.
++    expect(zitadelModule.getLoginSettings).not.toHaveBeenCalled();
++  });
++
+   it("should reject javascript: defaultRedirectUri in FailedPrecondition path (XSS prevention)", async () => {
+     const { ConnectError } = await import("@zitadel/client");
+     vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
+diff --git a/apps/login/src/lib/oidc.ts b/apps/login/src/lib/oidc.ts
+index 76a1601..1f79879 100644
+--- a/apps/login/src/lib/oidc.ts
++++ b/apps/login/src/lib/oidc.ts
+@@ -98,6 +98,23 @@ export async function loginWithOIDCAndSession({
+             params.append("organization", selectedSession.factors?.user?.organizationId);
+           }
+           return { redirect: signedinUrl + "?" + params.toString() };
++        } else if (isClassifiedError(error) && error.code === Code.NotFound) {
++          // The auth request no longer exists (COMMAND-jae5P): a stale link was
++          // reopened, or the Zitadel instance that issued it is gone. The
++          // current session does not prove the relying party's flow ever
++          // completed, so send the person to a fresh sign-in instead of the
++          // generic "Unknown error occurred".
++          const freshSigninUrl = "/loginname";
++
++          const params = new URLSearchParams();
++          params.append("requestExpired", "true");
++          if (selectedSession.factors?.user?.loginName) {
++            params.append("loginName", selectedSession.factors?.user?.loginName);
++          }
++          if (selectedSession.factors?.user?.organizationId) {
++            params.append("organization", selectedSession.factors?.user?.organizationId);
++          }
++          return { redirect: freshSigninUrl + "?" + params.toString() };
+         } else {
+           return { error: "Unknown error occurred" };
+         }
+diff --git a/apps/login/src/lib/saml.test.ts b/apps/login/src/lib/saml.test.ts
+new file mode 100644
+index 0000000..4f5f2ae
+--- /dev/null
++++ b/apps/login/src/lib/saml.test.ts
+@@ -0,0 +1,152 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import { loginWithSAMLAndSession } from "./saml";
++import * as sessionModule from "./session";
++import * as zitadelModule from "./zitadel";
++
++vi.mock("./session");
++vi.mock("./zitadel");
++vi.mock("./server/loginname");
++vi.mock("@/lib/grpc/interceptors/error-classification", () => ({
++  isClassifiedError: (error: unknown): boolean =>
++    typeof error === "object" && error !== null && "code" in error && typeof (error as any).code === "number",
++}));
++
++vi.mock("@zitadel/client", () => ({
++  Code: { FailedPrecondition: 9, NotFound: 5 },
++  ConnectError: class MockConnectError extends Error {
++    code: number;
++    constructor(msg: string, code: number) {
++      super(msg);
++      this.code = code;
++    }
++  },
++  create: vi.fn((_schema, value) => value),
++}));
++
++describe("loginWithSAMLAndSession", () => {
++  const mockServiceUrl = "https://zitadel.example.com";
++  const mockSamlRequest = "saml-123";
++  const mockSessionId = "session-123";
++
++  let mockSessions: any[];
++  let mockCookies: any[];
++
++  beforeEach(() => {
++    vi.clearAllMocks();
++    vi.spyOn(console, "log").mockImplementation(() => {});
++    vi.spyOn(console, "error").mockImplementation(() => {});
++    vi.spyOn(console, "warn").mockImplementation(() => {});
++
++    mockSessions = [
++      {
++        id: mockSessionId,
++        factors: {
++          user: {
++            id: "user-123",
++            loginName: "test@example.com",
++            organizationId: "org-123",
++          },
++          password: {
++            verifiedAt: { seconds: BigInt(Math.floor(Date.now() / 1000)) },
++          },
++        },
++      },
++    ];
++
++    mockCookies = [
++      {
++        id: mockSessionId,
++        token: "token-123",
++        loginName: "test@example.com",
++        creationTs: new Date().toISOString(),
++        expirationTs: new Date(Date.now() + 3600000).toISOString(),
++        changeTs: new Date().toISOString(),
++      },
++    ];
++  });
++
++  it("should redirect to the SAML response URL when session is valid", async () => {
++    vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
++    vi.mocked(zitadelModule.createResponse).mockResolvedValue({
++      url: "https://sp.example.com/acs",
++      binding: { case: "redirect", value: {} },
++    } as any);
++
++    const result = await loginWithSAMLAndSession({
++      serviceUrl: mockServiceUrl,
++      samlRequest: mockSamlRequest,
++      sessionId: mockSessionId,
++      sessions: mockSessions,
++      sessionCookies: mockCookies,
++    } as any);
++
++    expect(result).toEqual({ redirect: "https://sp.example.com/acs" });
++  });
++
++  it("should redirect to /signedin when error code 9 (already handled) and no default URI", async () => {
++    const { ConnectError } = await import("@zitadel/client");
++    vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
++    vi.mocked(zitadelModule.createResponse).mockRejectedValue(new ConnectError("already handled", 9));
++    vi.mocked(zitadelModule.getLoginSettings).mockResolvedValue({} as any);
++
++    const result = await loginWithSAMLAndSession({
++      serviceUrl: mockServiceUrl,
++      samlRequest: mockSamlRequest,
++      sessionId: mockSessionId,
++      sessions: mockSessions,
++      sessionCookies: mockCookies,
++    } as any);
++
++    expect(result).toHaveProperty("redirect");
++    if ("redirect" in result) {
++      expect(result.redirect).toContain("/signedin");
++    }
++  });
++
++  // The SAML request no longer exists (the Zitadel
++  // instance that issued it is gone). createResponse answers not_found, and
++  // the fix must route that case to a fresh sign-in, not "Unknown error
++  // occurred".
++  it("should redirect to a fresh sign-in when the SAML request no longer exists (NotFound)", async () => {
++    const { ConnectError } = await import("@zitadel/client");
++    vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
++    vi.mocked(zitadelModule.createResponse).mockRejectedValue(
++      new ConnectError("Auth Request does not exist (COMMAND-jae5P)", 5),
++    );
++
++    const result = await loginWithSAMLAndSession({
++      serviceUrl: mockServiceUrl,
++      samlRequest: mockSamlRequest,
++      sessionId: mockSessionId,
++      sessions: mockSessions,
++      sessionCookies: mockCookies,
++    } as any);
++
++    expect(result).toHaveProperty("redirect");
++    if ("redirect" in result) {
++      expect(result.redirect).toContain("/loginname");
++      expect(result.redirect).toContain("requestExpired=true");
++      expect(result.redirect).toContain("loginName=test%40example.com");
++      expect(result.redirect).toContain("organization=org-123");
++    }
++    expect(zitadelModule.getLoginSettings).not.toHaveBeenCalled();
++  });
++
++  it("should return unknown error for non-classified, non-NotFound errors", async () => {
++    vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
++    vi.mocked(zitadelModule.createResponse).mockRejectedValue({
++      code: 13,
++      message: "Internal error",
++    });
++
++    const result = await loginWithSAMLAndSession({
++      serviceUrl: mockServiceUrl,
++      samlRequest: mockSamlRequest,
++      sessionId: mockSessionId,
++      sessions: mockSessions,
++      sessionCookies: mockCookies,
++    } as any);
++
++    expect(result).toEqual({ error: "Unknown error occurred" });
++  });
++});
+diff --git a/apps/login/src/lib/saml.ts b/apps/login/src/lib/saml.ts
+index 3844393..b621aa6 100644
+--- a/apps/login/src/lib/saml.ts
++++ b/apps/login/src/lib/saml.ts
+@@ -121,6 +121,23 @@ export async function loginWithSAMLAndSession({
+             params.append("organization", selectedSession.factors?.user?.organizationId);
+           }
+           return { redirect: signedinUrl + "?" + params.toString() };
++        } else if (isClassifiedError(error) && error.code === Code.NotFound) {
++          // The SAML request no longer exists: a stale link was reopened, or
++          // the Zitadel instance that issued it is gone. The current session
++          // does not prove the relying party's flow ever completed, so send
++          // the person to a fresh sign-in instead of the generic "Unknown
++          // error occurred".
++          const freshSigninUrl = "/loginname";
++
++          const params = new URLSearchParams();
++          params.append("requestExpired", "true");
++          if (selectedSession.factors?.user?.loginName) {
++            params.append("loginName", selectedSession.factors?.user?.loginName);
++          }
++          if (selectedSession.factors?.user?.organizationId) {
++            params.append("organization", selectedSession.factors?.user?.organizationId);
++          }
++          return { redirect: freshSigninUrl + "?" + params.toString() };
+         } else {
+           return { error: "Unknown error occurred" };
+         }

@@ -22,7 +22,12 @@ customization surface.
 
 - **Do not add interactive-flow patches.** Password, MFA, passkey,
   reset, and IdP flows stay upstream's. Chrome only (explicit non-goal
-  in `README.md`).
+  in `README.md`). One narrow, deliberate exception exists:
+  `0003-redirect-on-vanished-auth-request.patch` changes what happens
+  after verification already succeeded, when Zitadel reports the
+  auth/SAML request record itself is gone. It does not touch credential
+  verification. Read the patch's README section before treating it as
+  license for more flow patches.
 - **Patches are `git apply -p1` diffs rooted at `apps/login/...`** in
   the upstream monorepo. A patch that no longer applies after an
   upstream bump is the expected failure mode — rebase the patch, never

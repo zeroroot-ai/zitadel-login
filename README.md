@@ -64,7 +64,36 @@ not a statement that plaintext is acceptable on the open network.
 
 ## The patches
 
-Two, applied in order by `git apply -p1`:
+Three, applied in order by `git apply -p1`:
+
+### `0003-redirect-on-vanished-auth-request.patch`
+
+Sends the person to a fresh sign-in instead of "Unknown error occurred" when
+the OIDC auth request or SAML request they are completing no longer exists.
+
+Observed on staging on 2026-09-25, after a Zitadel rebuild: a browser reopened
+a login URL carrying a `requestId` from before the rebuild. The person entered
+credentials and changed their password, both accepted, then the login app
+called `CreateCallback` to hand the relying party its result. Zitadel answered
+`not_found`, "Auth Request does not exist" (COMMAND-jae5P), because the auth
+request record itself was gone, not because anything the person did was
+wrong. `loginWithOIDCAndSession` (`oidc.ts`) and `loginWithSAMLAndSession`
+(`saml.ts`) already special-case `Code.FailedPrecondition` from this same call
+(an auth request already completed, so the person lands on `/signedin`). This
+patch adds the sibling case for `Code.NotFound`: the request record is simply
+gone, so the current session proves nothing was ever handed back to the
+relying party, and `/signedin` would be the wrong claim. The person is sent to
+`/loginname` (upstream's own no-`requestId` landing page, see `page.tsx`
+at the app root) with `requestExpired=true`, and `loginname/page.tsx` shows
+one line, reusing the existing `error.sessionExpired` translation, instead of
+adding a new key.
+
+This is the one deliberate exception to "chrome only, no interactive-flow
+patches" below: it does not touch credential verification, MFA, passkeys,
+password reset or external IdPs, and it changes exactly one terminal step,
+what happens after Zitadel itself says the request record is gone. Offered
+upstream as [zitadel/zitadel#12821][upstream-issue-vanished-auth-request]. See
+`oidc.test.ts` and `saml.test.ts` for the reproduction.
 
 ### `0002-disable-image-optimization.patch`
 
@@ -127,9 +156,11 @@ Per-bump checklist:
 1. Edit `UPSTREAM_REF`: set `TAG` to the new upstream tag and `COMMIT` to
    `git rev-parse <tag>` in `zitadel/zitadel`. Nothing else carries the version.
 2. Re-resolve the patch set: `make test` sparse-clones upstream at the new tag
-   and apply-checks `patches/*.patch`. If it fails, hand-merge the three files
-   (`logo.tsx`, `back-button.tsx`, `username-form.tsx`) and regenerate the
-   patch. The same check runs as the `patch-check` job on the PR.
+   and apply-checks `patches/*.patch`. If a patch fails, hand-merge the files it
+   touches (0001: `logo.tsx`, `back-button.tsx`, `username-form.tsx`; 0002:
+   `next.config.mjs`; 0003: `oidc.ts`, `saml.ts`, `loginname/page.tsx` and their
+   tests) and regenerate that patch. The same check runs as the `patch-check`
+   job on the PR.
 3. Merge. The push to `main` publishes `ghcr.io/zeroroot-ai/zitadel-login:<tag>`
    next to `sha-<short>`; no git tag is involved.
 
@@ -167,8 +198,9 @@ build). CI runs it on GitHub-hosted runners via `image.yml`.
 
 MIT, inherited from the upstream `apps/login/LICENSE`. See [LICENSE](LICENSE).
 
-The published image is a modified work. [NOTICE](NOTICE) names the upstream project, the pinned version and the two patches.
+The published image is a modified work. [NOTICE](NOTICE) names the upstream project, the pinned version and the three patches.
 
 Issue and pull request numbers cited in comments and documents dated before 2026-09-05 refer to the tracker before the history reset, archived offline. They do not resolve on GitHub.
 
 [upstream]: https://github.com/zitadel/zitadel/tree/main/apps/login
+[upstream-issue-vanished-auth-request]: https://github.com/zitadel/zitadel/issues/12821

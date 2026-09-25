@@ -18,7 +18,7 @@ Upstream version
 
 Modifications
   Copyright 2026 Zero Root AI. Zero Root AI modified the upstream
-  application with two patches, both described in README.md:
+  application with three patches, all described in README.md:
 
   patches/0001-zeroroot-login-customizations.patch
     Wraps the brand logo in a link to NEXT_PUBLIC_LANDING_URL, gives the
@@ -30,6 +30,13 @@ Modifications
     Sets images.unoptimized in next.config.mjs, which removes the
     /_next/image route. Nothing in the app uses the image optimizer.
 
-Neither patch changes an authentication flow. Password, MFA, passkey,
-password reset, external identity providers and account selection are
-upstream code, unchanged.
+  patches/0003-redirect-on-vanished-auth-request.patch
+    When the OIDC auth request or SAML request being completed no longer
+    exists, sends the person to a fresh sign-in with a short message
+    instead of showing "Unknown error occurred".
+
+None of the three patches change credential verification. Password, MFA,
+passkey, password reset, external identity providers and account selection
+are upstream code, unchanged. Patch 0003 changes one terminal step after
+verification already succeeded: what the app does when Zitadel reports that
+the request record it is completing is gone.
