@@ -18,7 +18,7 @@ Upstream version
 
 Modifications
   Copyright 2026 Zero Root AI. Zero Root AI modified the upstream
-  application with three patches, all described in README.md:
+  application with four patches, all described in README.md:
 
   patches/0001-zeroroot-login-customizations.patch
     Wraps the brand logo in a link to NEXT_PUBLIC_LANDING_URL, gives the
@@ -35,8 +35,17 @@ Modifications
     exists, sends the person to a fresh sign-in with a short message
     instead of showing "Unknown error occurred".
 
-None of the three patches change credential verification. Password, MFA,
+  patches/0004-security-settings-single-public-host-header.patch
+    Builds the GetSecuritySettings request headers on a real Headers
+    object instead of a plain Record, so a differently-cased
+    CUSTOM_REQUEST_HEADERS entry overwrites the code-set
+    x-zitadel-public-host / x-zitadel-instance-host value instead of
+    duplicating it into a comma-joined header Zitadel then rejects.
+
+None of the four patches change credential verification. Password, MFA,
 passkey, password reset, external identity providers and account selection
 are upstream code, unchanged. Patch 0003 changes one terminal step after
 verification already succeeded: what the app does when Zitadel reports that
-the request record it is completing is gone.
+the request record it is completing is gone. Patch 0004 changes only how one
+outgoing request's headers are constructed; it does not change what is sent
+where credential verification is concerned.
