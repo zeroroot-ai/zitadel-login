@@ -64,7 +64,42 @@ not a statement that plaintext is acceptable on the open network.
 
 ## The patches
 
-Three, applied in order by `git apply -p1`:
+Four, applied in order by `git apply -p1`:
+
+### `0004-security-settings-single-public-host-header.patch`
+
+Fixes a stock Zitadel defect: `fetchIframeOrigins()` in
+`security-settings.ts` sends a duplicated `x-zitadel-public-host` header
+whenever `CUSTOM_REQUEST_HEADERS` names that header (or
+`x-zitadel-instance-host`) in a different case than the hardcoded lowercase
+literal.
+
+`fetchIframeOrigins()` calls Zitadel's `GetSecuritySettings` with a raw
+`fetch()` (it runs from Next.js Edge middleware, where the Node-only Connect
+transport used everywhere else in the app is unavailable). It built its
+outgoing headers on a plain `Record<string, string>`, and HTTP header names
+are case-insensitive: `"x-zitadel-public-host"` and `"X-Zitadel-Public-Host"`
+are two different object keys but the same header on the wire. Per the
+WHATWG Fetch spec, when a `Headers` object is constructed from an object
+literal with two entries that normalize to the same name, the values are
+combined and comma-joined, not overwritten — so Zitadel received
+`x-zitadel-public-host: host, host` and rejected the request as an untrusted
+instance domain, and `GetSecuritySettings` 404'd. Every other call in this
+app goes through `createServerTransport` in `zitadel.ts`, which sets the same
+headers on a real Connect `Headers` object via `.set()` (case-insensitive,
+overwriting), so it never hits this. The failure is caught: the login page
+falls back to no iframe origins (`frame-ancestors 'none'`, the secure
+default), so there is no sign-in impact, but the security settings lookup
+silently fails whenever a deployment's `CUSTOM_REQUEST_HEADERS` casing
+doesn't exactly match the two hardcoded lowercase header names — as staging's
+did (`X-Zitadel-Public-Host`).
+
+Fix: build `fetchIframeOrigins()`'s headers on a real `Headers` object with
+`.set()`/`.delete()`, matching `createServerTransport`'s pattern, so a
+differently-cased `CUSTOM_REQUEST_HEADERS` entry overwrites the code-set
+value instead of duplicating it. Offered upstream as
+[zitadel/zitadel#12822][upstream-issue-security-settings-header]. See
+`security-settings.test.ts` for the reproduction.
 
 ### `0003-redirect-on-vanished-auth-request.patch`
 
@@ -159,8 +194,8 @@ Per-bump checklist:
    and apply-checks `patches/*.patch`. If a patch fails, hand-merge the files it
    touches (0001: `logo.tsx`, `back-button.tsx`, `username-form.tsx`; 0002:
    `next.config.mjs`; 0003: `oidc.ts`, `saml.ts`, `loginname/page.tsx` and their
-   tests) and regenerate that patch. The same check runs as the `patch-check`
-   job on the PR.
+   tests; 0004: `security-settings.ts` and its test) and regenerate that
+   patch. The same check runs as the `patch-check` job on the PR.
 3. Merge. The push to `main` publishes `ghcr.io/zeroroot-ai/zitadel-login:<tag>`
    next to `sha-<short>`; no git tag is involved.
 
@@ -198,9 +233,10 @@ build). CI runs it on GitHub-hosted runners via `image.yml`.
 
 MIT, inherited from the upstream `apps/login/LICENSE`. See [LICENSE](LICENSE).
 
-The published image is a modified work. [NOTICE](NOTICE) names the upstream project, the pinned version and the three patches.
+The published image is a modified work. [NOTICE](NOTICE) names the upstream project, the pinned version and the four patches.
 
 Issue and pull request numbers cited in comments and documents dated before 2026-09-05 refer to the tracker before the history reset, archived offline. They do not resolve on GitHub.
 
 [upstream]: https://github.com/zitadel/zitadel/tree/main/apps/login
 [upstream-issue-vanished-auth-request]: https://github.com/zitadel/zitadel/issues/12821
+[upstream-issue-security-settings-header]: https://github.com/zitadel/zitadel/issues/12822

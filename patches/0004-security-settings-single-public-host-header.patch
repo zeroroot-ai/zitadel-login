@@ -1,0 +1,129 @@
+diff --git a/apps/login/src/lib/server/security-settings.test.ts b/apps/login/src/lib/server/security-settings.test.ts
+new file mode 100644
+index 0000000..927470e
+--- /dev/null
++++ b/apps/login/src/lib/server/security-settings.test.ts
+@@ -0,0 +1,76 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { getIframeOrigins } from "./security-settings";
++
++// Stock Zitadel defect: GetSecuritySettings sends one public-host header.
++// fetchIframeOrigins() used to build its outgoing headers on a plain
++// Record<string, string>, so a CUSTOM_REQUEST_HEADERS entry that re-cases a
++// header this code also sets (e.g. "X-Zitadel-Public-Host" vs. the hardcoded
++// "x-zitadel-public-host") produced two distinct object keys. fetch() then
++// combines both into one comma-joined value, which Zitadel rejects as an
++// untrusted instance domain ("public domain \"host, host\" not trusted").
++describe("fetchIframeOrigins (via getIframeOrigins)", () => {
++  const savedEnv = { ...process.env };
++
++  beforeEach(() => {
++    process.env.ZITADEL_SERVICE_USER_TOKEN = "test-token";
++    delete process.env.AUDIENCE;
++    delete process.env.SYSTEM_USER_ID;
++    delete process.env.SYSTEM_USER_PRIVATE_KEY;
++    delete process.env.SYSTEM_USER_PRIVATE_KEY_FILE;
++    delete process.env.ZITADEL_LOGINCLIENT_KEYFILE;
++  });
++
++  afterEach(() => {
++    vi.unstubAllGlobals();
++    process.env = { ...savedEnv };
++  });
++
++  function mockFetchOk() {
++    const fetchMock = vi.fn().mockResolvedValue(
++      new Response(JSON.stringify({ settings: {} }), {
++        status: 200,
++        headers: { "Content-Type": "application/json" },
++      }),
++    );
++    vi.stubGlobal("fetch", fetchMock);
++    return fetchMock;
++  }
++
++  it("sends exactly one x-zitadel-public-host value, even when CUSTOM_REQUEST_HEADERS re-cases it", async () => {
++    process.env.CUSTOM_REQUEST_HEADERS = "X-Zitadel-Public-Host:app.staging.zeroroot.ai";
++    const fetchMock = mockFetchOk();
++
++    await getIframeOrigins("https://zitadel.internal", "instance.host", "app.staging.zeroroot.ai");
++
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++    const [, init] = fetchMock.mock.calls[0];
++    const headers = init.headers as Headers;
++    expect(headers).toBeInstanceOf(Headers);
++    expect(headers.get("x-zitadel-public-host")).toBe("app.staging.zeroroot.ai");
++    expect(headers.get("x-zitadel-public-host")).not.toContain(",");
++  });
++
++  it("lets a differently-cased CUSTOM_REQUEST_HEADERS entry still override the code-set value", async () => {
++    process.env.CUSTOM_REQUEST_HEADERS = "X-Zitadel-Public-Host:configured.example.com";
++    const fetchMock = mockFetchOk();
++
++    // getIframeOrigins is cached per instanceHost, so use one unused above.
++    await getIframeOrigins("https://zitadel.internal", "instance.host.override", "code-set.example.com");
++
++    const [, init] = fetchMock.mock.calls[0];
++    const headers = init.headers as Headers;
++    expect(headers.get("x-zitadel-public-host")).toBe("configured.example.com");
++  });
++
++  it("still sets x-zitadel-instance-host and the bearer token", async () => {
++    const fetchMock = mockFetchOk();
++
++    await getIframeOrigins("https://zitadel.internal", "instance.host.plain", "public.host.plain");
++
++    const [url, init] = fetchMock.mock.calls[0];
++    expect(url).toBe("https://zitadel.internal/zitadel.settings.v2.SettingsService/GetSecuritySettings");
++    const headers = init.headers as Headers;
++    expect(headers.get("x-zitadel-instance-host")).toBe("instance.host.plain");
++    expect(headers.get("Authorization")).toBe("Bearer test-token");
++  });
++});
+diff --git a/apps/login/src/lib/server/security-settings.ts b/apps/login/src/lib/server/security-settings.ts
+index f6a0ce0..180db63 100644
+--- a/apps/login/src/lib/server/security-settings.ts
++++ b/apps/login/src/lib/server/security-settings.ts
+@@ -86,27 +86,32 @@ export async function getIframeOrigins(
+ 
+ async function fetchIframeOrigins(baseUrl: string, instanceHost?: string, publicHost?: string): Promise<string[] | null> {
+   const token = await resolveAuthToken();
+-  const reqHeaders: Record<string, string> = {
++  // A real Headers object, not a plain Record<string, string>: HTTP header
++  // names are case-insensitive, and Headers.set() normalizes a name and
++  // overwrites any existing value under it. A plain object keeps "X-Foo" and
++  // "x-foo" as two distinct keys, so when CUSTOM_REQUEST_HEADERS re-cases a
++  // header this code already set (e.g. "X-Zitadel-Public-Host" here vs.
++  // "x-zitadel-public-host"), fetch() sends both, comma-joined into one
++  // value, instead of letting the configured one win. createServerTransport
++  // in zitadel.ts never hits this because Connect's req.header is already a
++  // real Headers object.
++  const reqHeaders = new Headers({
+     "Content-Type": "application/json",
+     Authorization: `Bearer ${token}`,
+-  };
++  });
+ 
+   // Apply instance/public host headers — same pattern as createServerTransport
+   if (instanceHost) {
+-    reqHeaders["x-zitadel-instance-host"] = instanceHost;
++    reqHeaders.set("x-zitadel-instance-host", instanceHost);
+   }
+   if (publicHost) {
+-    reqHeaders["x-zitadel-public-host"] = publicHost;
++    reqHeaders.set("x-zitadel-public-host", publicHost);
+   }
+ 
+   // Apply custom headers from environment
+   applyCustomHeaders({
+-    set: (key, value) => {
+-      reqHeaders[key] = value;
+-    },
+-    remove: (key) => {
+-      delete reqHeaders[key];
+-    },
++    set: (key, value) => reqHeaders.set(key, value),
++    remove: (key) => reqHeaders.delete(key),
+   });
+ 
+   const response = await fetch(`${baseUrl}/zitadel.settings.v2.SettingsService/GetSecuritySettings`, {
