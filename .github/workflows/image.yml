@@ -70,7 +70,7 @@ jobs:
 
   build:
     needs: resolve
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@1366fb5a29590e522bf5a74308f55bb39a4edb56 # v0.5.1
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@c06ea08fddecc754ac6faf06f9fc0511d13cb955 # v0.5.2
     permissions:
       # The reusable build declares what it needs and narrows to
       # contents: read itself. A write-scoped token on a job that clones
