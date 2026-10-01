@@ -80,8 +80,8 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 # version check that could never resolve. scripts/security-bumps.sh explains
 # both.
 #
-# Drop this the moment an upstream tag ships next 16.3.3+.
-ARG NEXT_FLOOR=16.3.3
+# Drop this the moment an upstream tag ships next 16.3.6+.
+ARG NEXT_FLOOR=16.3.6
 ARG SHARP_FLOOR=0.35.4
 COPY scripts/security-bumps.sh /tmp/security-bumps.sh
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
