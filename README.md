@@ -194,7 +194,8 @@ Per-bump checklist:
    and apply-checks `patches/*.patch`. If a patch fails, hand-merge the files it
    touches (0001: `logo.tsx`, `back-button.tsx`, `username-form.tsx`; 0002:
    `next.config.mjs`; 0003: `oidc.ts`, `saml.ts`, `loginname/page.tsx` and their
-   tests; 0004: `security-settings.ts` and its test) and regenerate that
+   tests; 0004: `security-settings.ts` and its test; 0005: `consent.tsx`; 0006:
+   `tailwind.config.mjs`) and regenerate that
    patch. The same check runs as the `patch-check` job on the PR.
 3. Merge. The push to `main` publishes `ghcr.io/zeroroot-ai/zitadel-login:<tag>`
    next to `sha-<short>`; no git tag is involved.
