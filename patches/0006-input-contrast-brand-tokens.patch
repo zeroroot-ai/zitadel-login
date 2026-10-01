@@ -1,0 +1,18 @@
+diff --git a/apps/login/tailwind.config.mjs b/apps/login/tailwind.config.mjs
+index 87595a4..cf604b5 100644
+--- a/apps/login/tailwind.config.mjs
++++ b/apps/login/tailwind.config.mjs
+@@ -105,8 +105,11 @@ export default {
+         input: {
+           light: {
+             label: "#000000c7",
+-            background: "#00000004",
+-            border: "#1a191954",
++            // zeroroot: brand --card and --input (ADR-0064). The upstream
++            // translucent border reaches only about 2:1 on the brand ground;
++            // --input reaches 3.3:1 (WCAG 2.2 SC 1.4.11).
++            background: "#f1f0ed",
++            border: "#7b7a75",
+             hoverborder: "1a1b1b",
+           },
+           dark: {

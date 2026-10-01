@@ -64,7 +64,30 @@ not a statement that plaintext is acceptable on the open network.
 
 ## The patches
 
-Four, applied in order by `git apply -p1`:
+Six, applied in order by `git apply -p1`:
+
+### `0006-input-contrast-brand-tokens.patch`
+
+Sets the light input fill and border in `tailwind.config.mjs` from the brand
+tokens (ADR-0064): fill `#f1f0ed` (`--card`) and border `#7b7a75`
+(`--input`). Upstream hard-codes a translucent border, `#1a191954`, which
+blends to about 2:1 on the brand ground `#e3e3df`, so the fields barely show.
+WCAG 2.2 SC 1.4.11 asks for 3:1 for a component boundary. The brand border
+reaches 3.33:1 against the card and 3.75:1 against the fill. The label policy
+cannot set these colors, so a patch is the only seam. If the brand tokens
+change, re-derive both hex values with the method in charts
+`helm/gibson/files/branding/README.md`.
+
+### `0005-device-consent-keys-and-empty-scopes.patch`
+
+Fixes two stock defects in `consent.tsx`, the device-flow consent screen
+that `gibson login` reaches. The Deny and Allow buttons passed
+`i18nKey="device.request.*"` together with `namespace="device"`, so the
+lookup was `device.device.request.*` and the buttons printed the raw key,
+long enough to push Allow out of the card. A scope with no message, such as
+`urn:zitadel:iam:user:resourceowner`, rendered an empty row. Fix: the keys
+are `request.deny` and `request.submit`, and a scope with no description is
+skipped.
 
 ### `0004-security-settings-single-public-host-header.patch`
 
@@ -194,7 +217,8 @@ Per-bump checklist:
    and apply-checks `patches/*.patch`. If a patch fails, hand-merge the files it
    touches (0001: `logo.tsx`, `back-button.tsx`, `username-form.tsx`; 0002:
    `next.config.mjs`; 0003: `oidc.ts`, `saml.ts`, `loginname/page.tsx` and their
-   tests; 0004: `security-settings.ts` and its test) and regenerate that
+   tests; 0004: `security-settings.ts` and its test; 0005: `consent.tsx`; 0006:
+   `tailwind.config.mjs`) and regenerate that
    patch. The same check runs as the `patch-check` job on the PR.
 3. Merge. The push to `main` publishes `ghcr.io/zeroroot-ai/zitadel-login:<tag>`
    next to `sha-<short>`; no git tag is involved.
