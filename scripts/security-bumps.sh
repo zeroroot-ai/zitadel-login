@@ -8,6 +8,7 @@
 #   next   CVE-2026-75604, GHSA-2xp9-vwfh-vxw4 — both CRITICAL, unauthenticated
 #          remote code execution on a page served before login. This image is
 #          the login UI.
+#          GHSA-vcvr-r3jv-pc5j — CRITICAL, fixed in 16.3.6.
 #   sharp  GHSA-rgj7-g3m4-5g8c — HIGH.
 #
 # The two need different mechanisms, which is what the first attempt got wrong:
@@ -37,10 +38,11 @@ pnpm --filter @zitadel/login add "next@${NEXT_FLOOR}"
 #   sharp@0.35.4                               GHSA-rgj7-g3m4-5g8c, HIGH
 #   @opentelemetry/propagator-jaeger@2.9.0     CVE-2026-59892, HIGH
 #   @opentelemetry/core@2.8.0                  CVE-2026-54285, MEDIUM (zitadel-login#15)
+#   @grpc/grpc-js@1.14.5                       CVE-2026-101916, HIGH (via nice-grpc)
 #
 # Add a line when a scan finds a fixable transitive CVE upstream has not moved.
 # Delete one the moment an upstream tag ships the fixed version.
-TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0 @opentelemetry/core@2.8.0}"
+TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0 @opentelemetry/core@2.8.0 @grpc/grpc-js@1.14.5}"
 
 TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES}" node -e '
   const fs = require("fs"), f = "/src/package.json";
