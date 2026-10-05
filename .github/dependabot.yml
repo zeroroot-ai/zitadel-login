@@ -10,18 +10,45 @@ updates:
     directory: /
     schedule:
       interval: weekly
-      day: tuesday
+      day: monday
+      time: "09:00"
     open-pull-requests-limit: 3
     labels:
       - dependencies
       - docker
 
+    groups:
+      docker-deps:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore(deps)
+      include: scope
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-      day: tuesday
+      day: monday
+      time: "09:00"
     open-pull-requests-limit: 5
     labels:
       - dependencies
       - github-actions
+    groups:
+      codeql-action:
+        patterns:
+          - github/codeql-action*
+      actions-deps:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - github/codeql-action*
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore(deps)
+      include: scope
