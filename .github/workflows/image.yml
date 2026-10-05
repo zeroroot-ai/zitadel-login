@@ -103,7 +103,7 @@ jobs:
   # version-links.yaml and opens or updates ONE charts PR that moves
   # `zitadel.image.tag` and the login pin to the tag this run published. The
   # PR goes through the charts merge gate and sign-off; auto-merge is never
-  # armed. A failure here is loud on purpose (ADR-0013). The two App secrets
+  # armed. A failure here is loud on purpose. The two App secrets
   # live on this repo, the same way sdk holds them for its fan-out.
   fanout:
     needs: build

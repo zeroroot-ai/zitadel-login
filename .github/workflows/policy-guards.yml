@@ -15,7 +15,7 @@
 #   - vault-auth-method-deny-list (ADR-0009 deny-list token scan)
 #   - no-monorepo-shortcuts (go.work / replace / submodules — vacuously
 #     green here, kept for org uniformity)
-#   - runs-on-lint (ADR-0060: GitHub-hosted runners only)
+#   - runs-on-lint (GitHub-hosted runners only)
 #
 # IMPORTANT: this exact structure (job id `policy-guards` calling the
 # reusable job id `vault-auth-method-deny-list`) is what produces the status
