@@ -26,7 +26,6 @@ updates:
           - patch
     commit-message:
       prefix: chore(deps)
-      include: scope
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -51,4 +50,3 @@ updates:
           - patch
     commit-message:
       prefix: chore(deps)
-      include: scope
