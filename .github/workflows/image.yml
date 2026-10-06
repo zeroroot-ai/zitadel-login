@@ -70,7 +70,7 @@ jobs:
 
   build:
     needs: resolve
-    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@c06ea08fddecc754ac6faf06f9fc0511d13cb955 # v0.5.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-image-build.yml@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
     permissions:
       # The reusable build declares what it needs and narrows to
       # contents: read itself. A write-scoped token on a job that clones
@@ -110,7 +110,7 @@ jobs:
     # A workflow_dispatch on main re-runs the fan-out by hand, for example
     # after the App secret was missing on the first push (run 34139336828).
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@c06ea08fddecc754ac6faf06f9fc0511d13cb955 # v0.5.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-version-fanout.yml@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
     permissions:
       contents: read
       packages: read
@@ -152,7 +152,7 @@ jobs:
   hardening:
     needs: build
     if: github.event_name != 'pull_request'
-    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@c06ea08fddecc754ac6faf06f9fc0511d13cb955 # v0.5.2
+    uses: zeroroot-ai/.github/.github/workflows/reusable-container-hardening.yml@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
     permissions:
       contents: read
       packages: read
