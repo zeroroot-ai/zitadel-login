@@ -9,7 +9,9 @@
 #          remote code execution on a page served before login. This image is
 #          the login UI.
 #          GHSA-vcvr-r3jv-pc5j — CRITICAL, fixed in 16.3.6.
-#   sharp  GHSA-rgj7-g3m4-5g8c — HIGH.
+#          CVE-2026-94483 — HIGH, fixed in 16.3.8.
+#   sharp  GHSA-rgj7-g3m4-5g8c — HIGH, fixed in 0.35.4.
+#          GHSA-wq5f-xc86-pv6w — HIGH, fixed in 0.35.5.
 #
 # The two need different mechanisms, which is what the first attempt got wrong:
 #
@@ -35,7 +37,7 @@ pnpm --filter @zitadel/login add "next@${NEXT_FLOOR}"
 # second copy at the root and leave what the app resolves untouched. A pnpm
 # override is the mechanism that actually moves a transitive dependency.
 #
-#   sharp@0.35.4                               GHSA-rgj7-g3m4-5g8c, HIGH
+#   sharp@0.35.5                               GHSA-rgj7-g3m4-5g8c, GHSA-wq5f-xc86-pv6w, HIGH
 #   @opentelemetry/propagator-jaeger@2.9.0     CVE-2026-59892, HIGH
 #   @opentelemetry/core@2.8.0                  CVE-2026-54285, MEDIUM (zitadel-login#15)
 #   @grpc/grpc-js@1.14.5                       CVE-2026-101916, HIGH (via nice-grpc)
