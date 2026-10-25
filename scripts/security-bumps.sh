@@ -10,6 +10,7 @@
 #          the login UI.
 #          GHSA-vcvr-r3jv-pc5j — CRITICAL, fixed in 16.3.6.
 #          CVE-2026-94483 — HIGH, fixed in 16.3.8.
+#          GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr — fixed after 16.4.0.
 #   sharp  GHSA-rgj7-g3m4-5g8c — HIGH, fixed in 0.35.4.
 #          GHSA-wq5f-xc86-pv6w — HIGH, fixed in 0.35.5.
 #
