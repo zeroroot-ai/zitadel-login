@@ -40,12 +40,23 @@ pnpm --filter @zitadel/login add "next@${NEXT_FLOOR}"
 #
 #   sharp@0.35.5                               GHSA-rgj7-g3m4-5g8c, GHSA-wq5f-xc86-pv6w, HIGH
 #   @opentelemetry/propagator-jaeger@2.9.0     CVE-2026-59892, HIGH
-#   @opentelemetry/core@2.8.0                  CVE-2026-54285, MEDIUM (zitadel-login#15)
+#   @opentelemetry/core@2.9.0                  CVE-2026-54285, MEDIUM (zitadel-login#15);
+#                                              2.9.0 is the floor of the mongoose and pg
+#                                              instrumentations below
+#   @opentelemetry/instrumentation-cassandra-driver@0.66.0  CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-knex@0.65.0              CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-mongoose@0.67.0          CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-mysql@0.67.0             CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-mysql2@0.67.0            CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-oracledb@0.46.0          CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-pg@0.73.0                CVE-2026-104872, MEDIUM
+#   @opentelemetry/instrumentation-tedious@0.40.0           CVE-2026-104872, MEDIUM
+#     (all eight via @opentelemetry/auto-instrumentations-node)
 #   @grpc/grpc-js@1.14.5                       CVE-2026-101916, HIGH (via nice-grpc)
 #
 # Add a line when a scan finds a fixable transitive CVE upstream has not moved.
 # Delete one the moment an upstream tag ships the fixed version.
-TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0 @opentelemetry/core@2.8.0 @grpc/grpc-js@1.14.5}"
+TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES:-sharp@${SHARP_FLOOR} @opentelemetry/propagator-jaeger@2.9.0 @opentelemetry/core@2.9.0 @grpc/grpc-js@1.14.5 @opentelemetry/instrumentation-cassandra-driver@0.66.0 @opentelemetry/instrumentation-knex@0.65.0 @opentelemetry/instrumentation-mongoose@0.67.0 @opentelemetry/instrumentation-mysql@0.67.0 @opentelemetry/instrumentation-mysql2@0.67.0 @opentelemetry/instrumentation-oracledb@0.46.0 @opentelemetry/instrumentation-pg@0.73.0 @opentelemetry/instrumentation-tedious@0.40.0}"
 
 TRANSITIVE_OVERRIDES="${TRANSITIVE_OVERRIDES}" node -e '
   const fs = require("fs"), f = "/src/package.json";

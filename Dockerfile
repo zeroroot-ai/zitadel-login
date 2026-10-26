@@ -118,7 +118,13 @@ FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a
 #     standalone server runs under plain `node` (see ENTRYPOINT/HEALTHCHECK).
 #     npm ships its own vendored deps (undici, tar, ip-address, ...) that
 #     lag behind their fixes and only add scan surface.
-RUN apk upgrade --no-cache \
+#   * APT_CACHE_BUST: the org build passes the run id. Without it the build
+#     cache replays this layer from the day it was first built, and the image
+#     keeps the musl and zlib of that day (2026-10-25: musl 1.2.6-r2 and zlib
+#     1.3.2-r0, with fixed packages in the index).
+ARG APT_CACHE_BUST
+RUN echo "apk cache bust: ${APT_CACHE_BUST:-none}" \
+    && apk upgrade --no-cache \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
